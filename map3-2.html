@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0f172a">
+    <title>馬來西亞華人移民同鄉會館原鄉分布地圖 | Nanyang Data</title>
+    
+    <!-- Leaflet CSS & JS (HTTPS CDN) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --bg-card: rgba(255, 255, 255, 0.95);
+            --border: #e2e8f0;
+            --text-dark: #0f172a;
+            --text-muted: #64748b;
+            --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --radius: 12px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            color: var(--text-dark);
+            background-color: #0f172a;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* Floating Top Bar */
+        .top-panel {
+            position: absolute;
+            top: 14px;
+            left: 14px;
+            right: 14px;
+            max-width: 460px;
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            z-index: 1000;
+            padding: 16px 18px;
+            transition: transform 0.3s ease;
+        }
+
+        .top-badge-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .badge-brand {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .nav-link {
+            font-size: 12px;
+            color: #0284c7;
+            text-decoration: none;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .nav-link:hover {
+            text-decoration: underline;
+        }
+
+        h1 {
+            font-size: clamp(16px, 4vw, 20px);
+            font-weight: 700;
+            color: #0f172a;
+            line-height: 1.25;
+            margin-bottom: 4px;
+        }
+
+        .source-banner {
+            font-size: 11.5px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            line-height: 1.4;
+        }
+
+        .source-banner strong {
+            color: #b91c1c;
+        }
+
+        /* Origin Filter Legend Pills */
+        .legend-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .filter-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            max-height: 110px;
+            overflow-y: auto;
+        }
+
+        .origin-btn {
+            border: 1px solid var(--border);
+            background: #f8fafc;
+            border-radius: 6px;
+            padding: 5px 9px;
+            font-size: 11.5px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            touch-action: manipulation;
+            transition: all 0.15s ease;
+        }
+
+        .origin-btn .dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .origin-btn.active {
+            background: #0f172a;
+            color: #ffffff;
+            border-color: #0f172a;
+        }
+
+        .origin-btn:hover:not(.active) {
+            background: #e2e8f0;
+        }
+
+        /* Secondary Layer Toggle */
+        .toggle-row {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 12px;
+        }
+
+        .toggle-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            user-select: none;
+            color: #475569;
+        }
+
+        /* Floating Action Buttons */
+        .map-actions {
+            position: absolute;
+            bottom: 20px;
+            right: 14px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .action-btn {
+            background: var(--bg-card);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-dark);
+            box-shadow: var(--shadow);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .action-btn:hover {
+            background: #f1f5f9;
+        }
+
+        /* Sites List Drawer / Sidebar */
+        .sites-drawer {
+            position: absolute;
+            top: 14px;
+            bottom: 14px;
+            right: 14px;
+            width: 380px;
+            max-width: calc(100vw - 28px);
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            transform: translateX(calc(100% + 20px));
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .sites-drawer.open {
+            transform: translateX(0);
+        }
+
+        .drawer-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .drawer-title {
+            font-size: 15px;
+            font-weight: 700;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: var(--text-muted);
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .close-btn:hover {
+            background: #e2e8f0;
+            color: var(--text-dark);
+        }
+
+        .drawer-search {
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .drawer-search input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 13px;
+            outline: none;
+        }
+
+        .drawer-content {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 10px 14px;
+        }
+
+        .site-card {
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: #ffffff;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .site-card:hover {
+            border-color: #0284c7;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+            transform: translateY(-1px);
+        }
+
+        .site-card-title {
+            font-size: 13.5px;
+            font-weight: 700;
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+        }
+
+        .site-card-sub {
+            font-size: 11.5px;
+            color: var(--text-muted);
+            margin: 2px 0 4px 0;
+        }
+
+        .site-card-meta {
+            font-size: 11px;
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        /* Leaflet Popup Styling */
+        .leaflet-popup-content-wrapper {
+            border-radius: 10px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
+            padding: 2px;
+            font-family: inherit;
+        }
+
+        .custom-popup {
+            padding: 4px;
+            max-width: 280px;
+        }
+
+        .popup-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            color: #ffffff;
+            font-size: 11px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .popup-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #0f172a;
+            line-height: 1.25;
+            margin-bottom: 2px;
+        }
+
+        .popup-alt {
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 8px;
+            line-height: 1.35;
+        }
+
+        .popup-row {
+            font-size: 12px;
+            margin-bottom: 4px;
+            color: #334155;
+            display: flex;
+            gap: 6px;
+        }
+
+        .popup-row strong {
+            color: #0f172a;
+            white-space: nowrap;
+        }
+
+        .popup-nav-btn {
+            display: block;
+            margin-top: 10px;
+            text-align: center;
+            background: #0f172a;
+            color: #ffffff !important;
+            padding: 6px 10px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .popup-nav-btn:hover {
+            background: #1e293b;
+        }
+
+        @media (max-width: 600px) {
+            .top-panel {
+                top: 10px;
+                left: 10px;
+                right: 10px;
+                padding: 12px 14px;
+            }
+            .filter-grid {
+                max-height: 85px;
+            }
+            .map-actions {
+                bottom: 14px;
+                right: 10px;
+            }
+            .sites-drawer {
+                top: 0;
+                bottom: 0;
+                right: 0;
+                width: 100vw;
+                max-width: 100vw;
+                border-radius: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <!-- Floating Top Control Panel -->
+    <div class="top-panel" id="topPanel">
+        <div class="top-badge-row">
+            <span class="badge badge-brand">Nanyang Data 地理圖層</span>
+            <a href="index.html" class="nav-link">📊 切換至圖表儀表板 &rarr;</a>
+        </div>
+        <h1>馬來西亞華人移民同鄉會館原鄉地圖</h1>
+        <div class="source-banner">
+            <strong>資料來源：Nanyang Data（CC BY-SA 4.0）</strong><br>
+            收錄 81 處同鄉會館（71 處已定位現代坐標），依祖籍原鄉色彩標記。
+        </div>
+
+        <div class="legend-title">
+            <span>原鄉分類篩選 (點擊過濾)</span>
+            <span id="activeCount" style="font-weight: normal; color: #0284c7;">顯示全部 71 處</span>
+        </div>
+
+        <div class="filter-grid" id="filterGrid">
+            <button class="origin-btn active" onclick="filterByOrigin('全部', this)">
+                <span>全部 (71)</span>
+            </button>
+            <button class="origin-btn" onclick="filterByOrigin('福建／閩南', this)">
+                <span class="dot" style="background: #2563eb;"></span>
+                <span>福建／閩南 (20)</span>
+            </button>
+            <button class="origin-btn" onclick="filterByOrigin('廣東／廣府四邑', this)">
+                <span class="dot" style="background: #dc2626;"></span>
+                <span>廣東廣府 (18)</span>
+            </button>
+            <button class="origin-btn" onclick="filterByOrigin('客家／客屬', this)">
+                <span class="dot" style="background: #16a34a;"></span>
+                <span>客家客屬 (14)</span>
+            </button>
+            <button class="origin-btn" onclick="filterByOrigin('海南／瓊州', this)">
+                <span class="dot" style="background: #ea580c;"></span>
+                <span>海南瓊州 (12)</span>
+            </button>
+            <button class="origin-btn" onclick="filterByOrigin('潮州／韓江', this)">
+                <span class="dot" style="background: #9333ea;"></span>
+                <span>潮州韓江 (4)</span>
+            </button>
+            <button class="origin-btn" onclick="filterByOrigin('廣西', this)">
+                <span class="dot" style="background: #0d9488;"></span>
+                <span>廣西 (1)</span>
+            </button>
+            <button class="origin-btn" onclick="filterByOrigin('其他／跨幫聯合', this)">
+                <span class="dot" style="background: #64748b;"></span>
+                <span>跨幫聯合 (2)</span>
+            </button>
+        </div>
+
+        <div class="toggle-row">
+            <label class="toggle-label">
+                <input type="checkbox" id="toggleOtherSites" onchange="toggleBackgroundSites(this.checked)">
+                <span>疊加背景歷史點位（神廟／義山 243處）</span>
+            </label>
+            <button onclick="resetMapView()" style="background:none; border:none; color:#0284c7; font-size:11.5px; cursor:pointer; font-weight:600;">全馬視角</button>
+        </div>
+    </div>
+
+    <!-- Floating Action Buttons -->
+    <div class="map-actions">
+        <button class="action-btn" onclick="toggleDrawer()">
+            <span>📋 會館名冊清單 (81處)</span>
+        </button>
+    </div>
+
+    <!-- Side Drawer with Site Cards -->
+    <div class="sites-drawer" id="sitesDrawer">
+        <div class="drawer-header">
+            <div>
+                <div class="drawer-title">華人同鄉會館全名冊</div>
+                <div style="font-size: 11px; color: var(--text-muted);">共 81 處（71 處已定位，10 處無坐標）</div>
+            </div>
+            <button class="close-btn" onclick="toggleDrawer()">&times;</button>
+        </div>
+        <div class="drawer-search">
+            <input type="text" id="drawerSearchInput" placeholder="🔍 搜尋會館名稱、原鄉或地名..." onkeyup="filterDrawerList()">
+        </div>
+        <div class="drawer-content" id="drawerCardsContainer">
+            <!-- Cards populated by JS -->
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        const hometownData = [{"id": "fm-wf-022", "zh": "廣肇會館", "alt": "Kuang-chao hui-kuan, Landsmannschaft of people from Kuang-chou and Chao-ch'ing prefecrures", "origin": "廣東／廣府四邑", "color": "#dc2626", "year": 1886, "frankeNo": "A1.22", "lat": 3.144035, "lng": 101.696684, "addr": "168, Jalan Tun H S Lee, City Centre, 50000 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur, Malaysia", "notes": "廣肇會館現掛牌於關帝廟，Franke所記原址當在Jalan Tun H.S. Lee （即書中所謂High street，華文名諧街）147、149號（3.1441905, 101.696607）。"}, {"id": "fm-wf-023", "zh": "惠州會館", "alt": "Hui-chou hui-kuan, Landsmannschaft of people from Hui-chou prefecrures", "origin": "客家／客屬", "color": "#16a34a", "year": 1875, "frankeNo": "A1.23", "lat": 3.145656, "lng": 101.697445, "addr": "Kuala Lumpur City Centre, 50050 Kuala Lumpur, Federal Territory of Kuala Lumpur, Malaysia", "notes": ""}, {"id": "fm-wf-024", "zh": "瓊州會館", "alt": "Ch'iung-chou hui-kuan, Landsmannschaft of people from Ch'iung-chou prefecrures, i.e. the island of Hainan", "origin": "海南／瓊州", "color": "#ea580c", "year": 1889, "frankeNo": "A1.24", "lat": 3.121321, "lng": 101.687636, "addr": "65, Persiaran Endah, Off, Jalan Syed Putra, 50460 Wilayah Persekutuan, Federal Territory of Kuala Lumpur, Malaysia", "notes": "現存最早文物A1.24.1 (1909)。瓊州會館現掛牌於天后宮，Franke所記原址當在Lorong Sultan（即書中所謂Sultan Street）83號（3.144099, 101.698846）。"}, {"id": "fm-wf-025", "zh": "番禺會館", "alt": "P'an-yü hui-kuan, Landsmannschaft of people from P'an-yü county to which the city of Canton belongs", "origin": "廣東／廣府四邑", "color": "#dc2626", "year": 1927, "frankeNo": "A1.25", "lat": 3.145252, "lng": 101.70647, "addr": "23-31, Jln Tong Shin, Bukit Bintang, 50200 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur, Malaysia", "notes": ""}, {"id": "fm-wf-026", "zh": "福建會館", "alt": "Fu-chien hui-kuan, Landsmannschaft of Fukien people", "origin": "福建／閩南", "color": "#2563eb", "year": 1932, "frankeNo": "A1.26", "lat": 3.148422, "lng": 101.698384, "addr": "Bangunan Selangor Hokkien Association, 41-c, Jalan Hang Lekiu, City Centre, 50100 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur, Malaysia", "notes": ""}, {"id": "fm-wf-027", "zh": "潮州八邑會館", "alt": "Kuang-chao hui-kuan, Landsmannschaft of people from Kuang-chou and Chao-ch'ing prefectures", "origin": "潮州／韓江", "color": "#9333ea", "year": 1891, "frankeNo": "A1.27", "lat": 3.170503, "lng": 101.697136, "addr": "1, Level 13A, Menara Teo Chew No, 1, Jalan Lumut, Pekeliling, 50400 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur, Malaysia", "notes": ""}, {"id": "fm-wf-028", "zh": "安溪會館", "alt": "An-ch'i hui-kuan, Landsmannschaft of people from An-ch'i county, Ch'üan-chou predecture, Fukien", "origin": "福建／閩南", "color": "#2563eb", "year": 1929, "frankeNo": "A1.28", "lat": 3.151877, "lng": 101.698427, "addr": "5th Floor, Wisma Ann Koai, 67, Jln Ampang, Kuala Lumpur, 50450 Kuala Lumpur, Federal Territory of Kuala Lumpur, Malaysia", "notes": "現存最早文物A1.26.1 (1938)。"}, {"id": "fm-wf-029", "zh": "會寗公所", "alt": "Hui-ning kung-so, Landsmannschaft of people from Ssu-hui and Kuang-ning, two adjoining counties of Chao-ch'ing prefecture", "origin": "廣東／廣府四邑", "color": "#dc2626", "year": 1951, "frankeNo": "A1.29", "lat": 3.141916, "lng": 101.697323, "addr": "2nd Floor, 8, Jalan Panggong, Kuala Lumpur City Centre, 50000 Kuala Lumpur, Federal Territory of Kuala Lumpur, Malaysia", "notes": ""}, {"id": "fm-wf-030", "zh": "台山會館", "alt": "T'ai-shan hui-kuan, Landsmannschaft of people from T'ai-shan (or Hsin-ning)", "origin": "廣東／廣府四邑", "color": "#dc2626", "year": 1951, "frankeNo": "A1.30", "lat": 3.144887, "lng": 101.707057, "addr": "13, Jln Tong Shin, Bukit Bintang, 50200 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur, Malaysia", "notes": "現存最早文物A1.30.1 (1957)。"}, {"id": "fm-wf-035", "zh": "商業職員公會", "alt": "Shang-yeh chih-yüan kung-hui, association of commercial employees", "origin": "其他／跨幫聯合", "color": "#64748b", "year": 1937, "frankeNo": "A1.35", "lat": null, "lng": null, "addr": "（無現代定位地址）", "notes": ""}, {"id": "fm-wf-045", "zh": "茶陽會館回春醫社", "alt": "Ch'a-yang hui-kuan Hui-ch'un i-she, hospital attached to Hakka Landsmannschaft of Ta-p'u county", "origin": "客家／客屬", "color": "#16a34a", "year": 1917, "frankeNo": "B2.5", "lat": 1.855418, "lng": 102.929594, "addr": "24A&B.Jalan Mohd Akil.Batu Pahat., Johor, Malaysia", "notes": "現存最早文物B2.5.1 (1932)。"}, {"id": "fm-wf-050", "zh": "廣西同鄉會", "alt": "Kuang-hsi t'ung-hsiang-hui, Kwangsi Landsmannschaft", "origin": "廣西", "color": "#0d9488", "year": 1947, "frankeNo": "B5.3", "lat": null, "lng": null, "addr": "（無現代定位地址）", "notes": ""}, {"id": "fm-wf-053", "zh": "永春會館", "alt": "Yung-ch'un hui-kuan, Landsmannschaft of people from Yung-ch'un", "origin": "福建／閩南", "color": "#2563eb", "year": 1908, "frankeNo": "B7.2", "lat": 2.049687, "lng": 102.569465, "addr": "Jalan Maharani, Taman Sri Emas, 84000 Muar, Johor, Malaysia", "notes": ""}, {"id": "fm-wf-062", "zh": "廣東暨汀州會館", "alt": "Kuang-tung chi T'ing-chou hui-kuan, Landsmannschaft of people from Kuangtung province and from T'ing-chou prefecture, Fukien", "origin": "廣東／廣府四邑", "color": "#dc2626", "year": 1852, "frankeNo": "C1.5", "lat": 6.11654, "lng": 100.363082, "addr": "9-35, Jalan Tunku Yaakub, Taman Pesisiran Tanjung Chali, 05000 Alor Setar, Kedah, Malaysia", "notes": "現存最早文物C1.5.1 (1911)。"}, {"id": "fm-wf-063", "zh": "漳泉公所", "alt": "Chang Ch'üan kung-so, Landsmannschaft of people originating from former two prefectures of Chang-chou and Ch'üan-chou Fukien", "origin": "福建／閩南", "color": "#2563eb", "year": 1954, "frankeNo": "C1.6", "lat": null, "lng": null, "addr": "（無現代定位地址）", "notes": ""}, {"id": "fm-wf-070", "zh": "琼州會館", "alt": "Ch'iung-chou hui-kuan, Hainan Landsmannschaft of Kuah", "origin": "海南／瓊州", "color": "#ea580c", "year": 1910, "frankeNo": "C4.4", "lat": null, "lng": null, "addr": "（無現代定位地址）", "notes": "現存最早文物C4.4.1 (1926)。"}, {"id": "fm-wf-072", "zh": "古城會館", "alt": "Ku-ch'eng hui-kuan", "origin": "其他／跨幫聯合", "color": "#64748b", "year": 1909, "frankeNo": "C5.2", "lat": 5.638458, "lng": 100.495268, "addr": "42 A, Jalan Tiga, Kampung Sungai Tongka, 08000 Sungai Petani, Kedah, Malaysia", "notes": ""}, {"id": "fm-wf-102", "zh": "福建會館", "alt": "Fu-chien hui-kuan, Fukien Landsmannschaft", "origin": "福建／閩南", "color": "#2563eb", "year": 1843, "frankeNo": "E1.23", "lat": 2.195871, "lng": 102.247389, "addr": "23, Jalan Hang Jebat, 75200 Melaka, Malaysia", "notes": ""}, {"id": "fm-wf-103", "zh": "瓊州會館", "alt": "Ch'iung-chou hui-kuan, Landsmannschaft of people from Ch'iung chou prefecture, i.e. Hainan island", "origin": "海南／瓊州", "color": "#ea580c", "year": 1869, "frankeNo": "E1.24", "lat": 2.197507, "lng": 102.245664, "addr": "115, Jalan Hang Jebat, 75200 Melaka, Malaysia", "notes": "現存最早文物E1.24.1 (1871)。"}, {"id": "fm-wf-104", "zh": "永春會館", "alt": "Yung-ch'un hui-kuan, Landsmannschaft of people from Yung-ch'un Department", "origin": "福建／閩南", "color": "#2563eb", "year": 1875, "frankeNo": "E1.25", "lat": 2.196592, "lng": 102.245079, "addr": "122, Jalan Tun Tan Cheng Lock, 75200 Melaka, Malaysia", "notes": ""}, {"id": "fm-wf-105", "zh": "漳州會館", "alt": "Chang-chou hui-kuan, Landsmannschaft of people from Chang-chou prefecture", "origin": "福建／閩南", "color": "#2563eb", "year": 1894, "frankeNo": "E1.26", "lat": 2.209941, "lng": 102.254505, "addr": "49, Jalan Taming Sari, Kampung Mata Kuching, 75400 Melaka, Malaysia", "notes": ""}, {"id": "fm-wf-106", "zh": "雷州會館, 雷陽社", "alt": "Lei-chou hui-kuan, Landsmannschaft of people from Lei-chou prefecture, Lei-yang she", "origin": "海南／瓊州", "color": "#ea580c", "year": 1916, "frankeNo": "E1.27", "lat": 2.197219, "lng": 102.24595, "addr": "97, Jalan Hang Jebat, 75200 Melaka, Malaysia", "notes": ""}, {"id": "fm-wf-107", "zh": "應和會館", "alt": "Ying-ho hui-kuan, Landsmannschaft of Hakka from Chia-ying chou", "origin": "客家／客屬", "color": "#16a34a", "year": 1916, "frankeNo": "E1.28", "lat": 2.194681, "lng": 102.256894, "addr": "Lorong Laksamana Cheng Ho 2, 75000 Melaka, Malaysia", "notes": "曾用名Mei-chou chung-chi kung-ssu梅州衆記公司, Ying-ho kung-ssu應和公司。"}, {"id": "fm-wf-108", "zh": "茶陽會館", "alt": "Ch'a-yang hui-kuan, Landsmannschaft of Hakka people from Ta-p'u county, Ch'ao-chou prefecture", "origin": "客家／客屬", "color": "#16a34a", "year": 1810, "frankeNo": "E1.29", "lat": 2.197098, "lng": 102.246085, "addr": "89, Jalan Hang Jebat, 75200 Melaka, Malaysia", "notes": "現存最早文物E1.29.1 (1917)。"}, {"id": "fm-wf-109", "zh": "岡州會館", "alt": "Kang-chou hui-kuan, Landsmannschaft of people from six countries Hsin-hui, T'ai-shan, En-p'ing, K'ai-ping, Ho-shan, and Chih-ch'i, belong to Kuang-chou and Chao-ch'ing prefecture", "origin": "廣東／廣府四邑", "color": "#dc2626", "year": 1891, "frankeNo": "E1.30", "lat": 2.19773, "lng": 102.247084, "addr": "22, Jalan Tokong, Kampung Dua, 75200 Melaka, Malaysia", "notes": "現存最早文物E1.30.1 (1952)。"}, {"id": "fm-wf-125", "zh": "鵝城會館", "alt": "T'ien shih-yeh kung, Temple of the Heavenly Master", "origin": "客家／客屬", "color": "#16a34a", "year": 1871, "frankeNo": "F1.7", "lat": 2.728857, "lng": 101.940489, "addr": "41, Jalan Kapitan Tam Yeong, Taman Sim, 70000 Seremban, Negeri Sembilan, Malaysia", "notes": "現存最早文物F1.7.1 (1891)。鵝城會館現名惠州會館，現址完工於1983年，不確定是否為Franke書中所記。"}, {"id": "fm-wf-126", "zh": "四邑會館", "alt": "Ssu-i hui-kuan, Landsmannschaft of people from the four counties of T'ai shan, Hsin-hui, K'ai-p'ing, and En-p'ing", "origin": "廣東／廣府四邑", "color": "#dc2626", "year": 1889, "frankeNo": "F1.8", "lat": 2.728927, "lng": 101.940812, "addr": "777, Jalan Leftenan Adnan, Taman Sim, 70200 Seremban, Negeri Sembilan, Malaysia", "notes": ""}, {"id": "fm-wf-127", "zh": "瓊州會館", "alt": "Ch'iung-chou hui-kuan, the landsmanschaft of people from Hainan", "origin": "海南／瓊州", "color": "#ea580c", "year": 1904, "frankeNo": "F1.9", "lat": 2.728126, "lng": 101.941094, "addr": "29-30, 31, Jalan Dato' Abdul Malek, Taman Sim, 70000 Seremban, Negeri Sembilan, Malaysia", "notes": ""}, {"id": "fm-wf-128", "zh": "海陸會館", "alt": "Hai-lu hui-kuan, the landsmannschaft of people from the two counties Hai-feng and Lu-feng in Hui-chou prefecture", "origin": "客家／客屬", "color": "#16a34a", "year": 1936, "frankeNo": "F1.10", "lat": 2.701618, "lng": 101.940092, "addr": "938, Jalan Rasah, Kampung Dato Mansor, 70300 Seremban, Negeri Sembilan, Malaysia", "notes": ""}, {"id": "fm-wf-143", "zh": "客屬公會", "alt": "K'o-shu kung-hui, Landsmannschaft of Hakka people", "origin": "客家／客屬", "color": "#16a34a", "year": 1891, "frankeNo": "G3.3", "lat": null, "lng": null, "addr": "（無現代定位地址）", "notes": "曾用名K'o-chi hui-kuan客籍會館，1939年改為現名。"}, {"id": "fm-wf-145", "zh": "瓊州會館", "alt": "Ch'iung-chou hui-kuan, Landsmannschaft of Hainan people", "origin": "海南／瓊州", "color": "#ea580c", "year": 1926, "frankeNo": "G4.2", "lat": 3.480838, "lng": 102.347137, "addr": "Jalan Mentakab 1, Taman Mentakab, Mentakab, Malaysia", "notes": ""}, {"id": "fm-wf-148", "zh": "瓊州會館", "alt": "Ch'iung-chou hui-kuan, Landsmannschaft of people from Hainan ", "origin": "海南／瓊州", "color": "#ea580c", "year": 1902, "frankeNo": "G5.3", "lat": null, "lng": null, "addr": "（無現代定位地址）", "notes": ""}, {"id": "fm-wf-149", "zh": "廣肇會館", "alt": "Kuang Chao hui-kuan, Landsmannschaft of people from Kuang-chou and Chao-ch'ing prefectures", "origin": "廣東／廣府四邑", "color": "#dc2626", "year": 1927, "frankeNo": "G5.4", "lat": null, "lng": null, "addr": "（無現代定位地址）", "notes": ""}, {"id": "fm-wf-153", "zh": "廣西會館", "alt": "Kuang-hsi hui-kuan, Landsmannschaft of people from Kuangsi province", "origin": "廣西", "color": "#0d9488", "year": 1956, "frankeNo": "G7.2", "lat": 3.485996, "lng": 102.35032, "addr": "Kampung China, 28400 Mentakab, Pahang, Malaysia", "notes": ""}, {"id": "fm-wf-182", "zh": "嘉應會館", "alt": "Chia-ying hui-kuan, Hakka Landsmannschaft of Chia-ying chou", "origin": "客家／客屬", "color": "#16a34a", "year": 1803, "frankeNo": "H1.29", "lat": 5.418898, "lng": 100.340283, "addr": "24, King Street, George Town, 10200 George Town, Pulau Pinang, Malaysia", "notes": "曾用名Jen-ho kung-kuan仁和公館。現存最早文物App. (1803)。"}, {"id": "fm-wf-183", "zh": "潮州會館", "alt": "Ch'ao-chou hui-kuan, Ch'ao-chou Landsmannschaft", "origin": "潮州／韓江", "color": "#9333ea", "year": 1864, "frankeNo": "H1.30", "lat": 5.416656, "lng": 100.338219, "addr": "127, Lbh Chulia, George Town, 10200 George Town, Pulau Pinang, Malaysia", "notes": "曾用名Han-chiang chia-miao韓江家廟。現存最早文物H1.30.1 (1870)。"}, {"id": "fm-wf-184", "zh": "瓊州會館", "alt": "Ch'iung-chou hui-kuan, Hainan-Landsmannschaft of Ch'iung-chou", "origin": "海南／瓊州", "color": "#ea580c", "year": 1860, "frankeNo": "H1.31", "lat": 5.420381, "lng": 100.334607, "addr": "93, Lebuh Muntri, George Town, 10200 George Town, Pulau Pinang, Malaysia", "notes": "曾用名T'ien-hou kung天后宮。現存最早文物H1.31.1 (1870)。"}, {"id": "fm-wf-185", "zh": "平章會館, 平章公館, 華人大會堂", "alt": "P'ing-chang hui-kuan, P'ing-chang kung-kuan, Hua-jen ta-hui-t'ang, Chinese Town Hall", "origin": "其他／跨幫聯合", "color": "#64748b", "year": 1886, "frankeNo": "H1.32", "lat": 5.418867, "lng": 100.338846, "addr": "22, Jln Masjid Kapitan Keling, George Town, 10200 George Town, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-186", "zh": "寧陽會館,甯陽舘", "alt": "Ning-yang hui-kuan, Landsmannschaft of people from Ning-yang county, i.e. Hsin-ning 新寧 (later T'aishan 台山) , Kuang-chou Prefecture, Ning-yang kuan", "origin": "廣東／廣府四邑", "color": "#dc2626", "year": 1831, "frankeNo": "H1.33", "lat": 5.418331, "lng": 100.339977, "addr": "36 & 38, King Street, George Town, 10200 George Town, Pulau Pinang, Malaysia", "notes": "現存最早文物H1.33.1 (1888)。"}, {"id": "fm-wf-188", "zh": "南海會館", "alt": "Nan-hai hui-kuan, Landsmannschaft of people from Nan-hai County, Kuang-chou Prefecture", "origin": "廣東／廣府四邑", "color": "#dc2626", "year": 1860, "frankeNo": "H1.35", "lat": 5.419427, "lng": 100.333657, "addr": "463, Lbh Chulia, George Town, 10200 George Town, Pulau Pinang, Malaysia", "notes": "現存最早文物H1.35.1 (1904)。"}, {"id": "fm-wf-189", "zh": "香山/中山會館", "alt": "Hsiang-shan or Chung-shan hui-kuan, Landsmannschaft of people from Hsiang-shan county, Kuang-chou prefecture", "origin": "廣東／廣府四邑", "color": "#dc2626", "year": 1860, "frankeNo": "H1.36", "lat": 5.418608, "lng": 100.340167, "addr": "30, King Street, George Town, 10200 George Town, Pulau Pinang, Malaysia", "notes": "現存最早文物H1.36.1 (1907)。"}, {"id": "fm-wf-190", "zh": "增龍會館", "alt": "Tseng-lung hui-kuan, Landsmannschaft of people from Tseng-ch'eng and Lung-men counties, Kuang-chou Prefecture, mainly Hakka", "origin": "客家／客屬", "color": "#16a34a", "year": 1922, "frankeNo": "H1.37", "lat": 5.419202, "lng": 100.340448, "addr": "18, King Street, George Town, 10200 George Town, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-191", "zh": "廣東暨汀州會館", "alt": "Kuang-tung chi T'ing-chou hui-kuan, Landsmannschaft of people from Kuangtung province and from T'ing-chou prefecture, Fukien", "origin": "廣東／廣府四邑", "color": "#dc2626", "year": 1925, "frankeNo": "H1.38", "lat": 5.418284, "lng": 100.340672, "addr": "50, Penang St, Georgetown, 10200 George Town, Penang, Malaysia", "notes": "現存最早文物H1.38.1 (1940)。"}, {"id": "fm-wf-192", "zh": "惠安公會", "alt": "Hui-an kung-hui, Landsmannschaft of people from Hui-an county, Ch'uan-chou prefecture", "origin": "福建／閩南", "color": "#2563eb", "year": 1938, "frankeNo": "H1.39", "lat": 5.412367, "lng": 100.331829, "addr": "No. 73, Jalan Magazine, 10300 George Town, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-193", "zh": "大埔同鄉會", "alt": "Ta-p'u t'ung-hsiang-hui, Hakka Landsmannschaft of people from Ta-p'u county, Ch'ao-chou prefecture", "origin": "客家／客屬", "color": "#16a34a", "year": 1936, "frankeNo": "H1.40", "lat": 5.419206, "lng": 100.323263, "addr": "33, Jalan Anson, 10400 George Town, Pulau Pinang, Malaysia", "notes": "現存最早文物H1.40.1 (1949)。"}, {"id": "fm-wf-194", "zh": "龍巖會館", "alt": "Lung-yen hui-kuan, Landsmannschaft of people originating from former independent department of Lung-yen (chou), Fukien", "origin": "福建／閩南", "color": "#2563eb", "year": 1929, "frankeNo": "H1.41", "lat": 5.413296, "lng": 100.33538, "addr": "24, Lebuh Melayu, George Town, 10300 George Town, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-195", "zh": "永定同鄉會", "alt": "Yung-ting t'ung-hsiang-hui, Landsmannschaft of people originating from Yung-ting county, T'ing-chou prefecture, Fukien", "origin": "客家／客屬", "color": "#16a34a", "year": 1947, "frankeNo": "H1.42", "lat": null, "lng": null, "addr": "（無現代定位地址）", "notes": "現存最早文物H1.42.1 (1953)。"}, {"id": "fm-wf-196", "zh": "晉江會館", "alt": "Chin-chiang hui-kuan, Landsmannschaft of people from Chin-Chiang county, forming the prefectural city of Ch'üan-chou, Fukien", "origin": "福建／閩南", "color": "#2563eb", "year": 1919, "frankeNo": "H1.43", "lat": 5.415985, "lng": 100.325491, "addr": "120-1, Jln Macalister, 10450 George Town, Pulau Pinang, Malaysia", "notes": "現存最早文物H1.43.1 (1961)。"}, {"id": "fm-wf-197", "zh": "客屬公會", "alt": "K'o-shu kung-hui, Landsmannschaft of all Hakka people", "origin": "客家／客屬", "color": "#16a34a", "year": 1939, "frankeNo": "H1.44", "lat": 5.418075, "lng": 100.328787, "addr": "34, Jalan Burma, 10050 , George Town, Malaysia", "notes": "現存最早文物H1.44.1 (1962)。"}, {"id": "fm-wf-198", "zh": "同安金厦公會", "alt": "T'ung-an Chin Hsia kung-kui (Tong Aun Kim Har Association), Landsmannschaft of people originating from T'uang-an county, Quemoy, and Amoy, Fukien", "origin": "福建／閩南", "color": "#2563eb", "year": 1933, "frankeNo": "H1.45", "lat": 5.413185, "lng": 100.335522, "addr": "22, Lebuh Melayu, George Town, 10300 George Town, Pulau Pinang, Malaysia", "notes": "現存最早文物H1.45.1 (1963)。"}, {"id": "fm-wf-220", "zh": "韓江公會", "alt": "Han-chiang kung-hui, Hung Kung Association/Landsmannschaft of people from Ch'ao-chou prefecture", "origin": "潮州／韓江", "color": "#9333ea", "year": 1931, "frankeNo": "H2.3", "lat": 5.362932, "lng": 100.462666, "addr": "109, Jalan Datuk Ooh Chooi Cheng, 14000 Bukit Mertajam, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-232", "zh": "嘉應會館", "alt": "Chia-ying hui-kuan, Hakka Landsmannschaft of Chia-ying", "origin": "客家／客屬", "color": "#16a34a", "year": 1900, "frankeNo": "I1.5", "lat": 4.595665, "lng": 101.076943, "addr": "Third Floor, Perak Kaying Building, 114, Jln Sultan Yussof, 30000 Ipoh, Perak, Malaysia", "notes": "現存最早文物I1.5.1 (1902)。"}, {"id": "fm-wf-233", "zh": "東安會館", "alt": "Tung An hui-kuan, Landsmannschaft of people from Tung-kuan and Hsin-an counties, Kuang-chou prefecture", "origin": "廣東／廣府四邑", "color": "#dc2626", "year": 1953, "frankeNo": "I1.6", "lat": 4.594376, "lng": 101.085867, "addr": "No. 73 & 75, Jalan Theatre, Taman Jubilee, 30300 Ipoh, Perak, Malaysia", "notes": ""}, {"id": "fm-wf-237", "zh": "福建公會", "alt": "Fu-chien kung-hui, Fukien Landsmannschaft", "origin": "福建／閩南", "color": "#2563eb", "year": 1934, "frankeNo": "I3.2", "lat": 4.315567, "lng": 101.153085, "addr": "176A-178A, Jalan Gopeng, 31900 Kampar, Perak, Malaysia", "notes": "現存最早文物I3.2.1 (1938)。"}, {"id": "fm-wf-261", "zh": "瓊州會館", "alt": "Ch'iung-chou hui-kuan, Hainan Landsmannschaft", "origin": "海南／瓊州", "color": "#ea580c", "year": 1881, "frankeNo": "I10.16", "lat": 4.850256, "lng": 100.744457, "addr": "16, Jalan Maharajalela, 34000 Taiping, Perak, Malaysia", "notes": "疑似。"}, {"id": "fm-wf-262", "zh": "增龍會館", "alt": "Tseng-lung hui-kuan, Landsmannschaft of people from Tseng-ch'eng and Lung-men counties of Kuang-chou prefecture", "origin": "客家／客屬", "color": "#16a34a", "year": 1887, "frankeNo": "I10.17", "lat": 4.850965, "lng": 100.738837, "addr": "Jalan Pasar, 34000 Taiping, Perak, Malaysia", "notes": "現存最早文物I10.17.1 (1887)。"}, {"id": "fm-wf-263", "zh": "廣東會館", "alt": "Kuang-tung hui-kuan, Landsmannschaft of people from Kuang-tung province", "origin": "廣東／廣府四邑", "color": "#dc2626", "year": 1887, "frankeNo": "I10.18", "lat": 4.85329, "lng": 100.743752, "addr": "13, Jalan Tokong, 34000 Taiping, Perak, Malaysia", "notes": ""}, {"id": "fm-wf-264", "zh": "順德會館", "alt": "Shun-te hui-kuan, Landsmannschaft of people from Shun-te county Kuang-chou prefecture", "origin": "廣東／廣府四邑", "color": "#dc2626", "year": 1895, "frankeNo": "I10.19", "lat": 4.853254, "lng": 100.743074, "addr": "36, Jalan Kota, 34000 Taiping, Perak, Malaysia", "notes": ""}, {"id": "fm-wf-265", "zh": "清遠會館", "alt": "Ch'ing-yüan hui-kuan, Landsmannschaft of people from Ch'ing-yüan county, Kuang-chou prefecture", "origin": "廣東／廣府四邑", "color": "#dc2626", "year": 1909, "frankeNo": "I10.20", "lat": 4.853995, "lng": 100.74291, "addr": "22, Jalan Pasar, 34000 Taiping, Perak, Malaysia", "notes": "現存最早文物I.20.1 (1909)。"}, {"id": "fm-wf-266", "zh": "惠州會館", "alt": "Hui-chou hui-kuan, Landsmannschaft of people from Hui-chou prefecture", "origin": "客家／客屬", "color": "#16a34a", "year": 1923, "frankeNo": "I10.21", "lat": null, "lng": null, "addr": "（無現代定位地址）", "notes": ""}, {"id": "fm-wf-267", "zh": "福建會館", "alt": "Fu-chien hui-kuan, Landsmannschaft of Fukien people", "origin": "福建／閩南", "color": "#2563eb", "year": 1931, "frankeNo": "I10.22", "lat": 4.848396, "lng": 100.735147, "addr": "290, Jalan Kota, Kampung Jambu, 34000 Taiping, Perak, Malaysia", "notes": "曾用名Fu-chien kung-ssu福建公司。"}, {"id": "fm-wf-268", "zh": "(古)岡州會館", "alt": " (Ku) Kang-chou hui-kuan, Landsmannschaft of people originating from ancient Kang-chou", "origin": "廣東／廣府四邑", "color": "#dc2626", "year": 1880, "frankeNo": "I10.23", "lat": 4.849924, "lng": 100.744006, "addr": "No. 42, Jalan Maharajalela, 34000 Taiping, Perak, Malaysia", "notes": ""}, {"id": "fm-wf-269", "zh": "興安會館", "alt": "Hsing-an hui-kuan, Landsmannschaft of people of the two counties P'u-t'ien and Hsien-yu which made up Hsing-hua prefecture", "origin": "福建／閩南", "color": "#2563eb", "year": 1898, "frankeNo": "I10.24", "lat": 4.847828, "lng": 100.742257, "addr": "No. 222, 2nd Floor, Jalan Chung Thye Phin, Perak, 34000 Taiping, Malaysia", "notes": "現存最早文物I10.24.1 (1958)。"}, {"id": "fm-wf-275", "zh": "福建會館", "alt": "Fu-chien hui-kuan, Landsmannschaft of people from Fukien", "origin": "福建／閩南", "color": "#2563eb", "year": 1962, "frankeNo": "J1.3", "lat": 6.438608, "lng": 100.193699, "addr": "Pusat Bandar Kangar, 01000 , Malaysia", "notes": ""}, {"id": "fm-wf-283", "zh": "閩南公所", "alt": "Min-nan Kung-so, the Landsmanschaft of peaple from Southern Fukien", "origin": "福建／閩南", "color": "#2563eb", "year": 1927, "frankeNo": "K1.6", "lat": 3.052667, "lng": 101.461727, "addr": "3216, Jalan Batu Tiga Lama, Kawasan 16, 41300 Klang, Selangor, Malaysia", "notes": ""}, {"id": "fm-wf-285", "zh": "潮州八邑會館", "alt": "Ch'ao-chou pa-i hui-kuan, Ch'ao-chou Landsmannschaft", "origin": "潮州／韓江", "color": "#9333ea", "year": 1947, "frankeNo": "K1.8", "lat": 3.044417, "lng": 101.446026, "addr": "No.50 , Jalan Raya Barat/KS1,, Pusat Bandar, 41000 Klang, Selangor, Malaysia", "notes": ""}, {"id": "fm-wf-286", "zh": "大埔同鄉會", "alt": "Ta-p'u t'ung-hsiang-hui (Tai Pu Association), Landsmannschaft Hakka county Ta-p'u ", "origin": "客家／客屬", "color": "#16a34a", "year": 1938, "frankeNo": "K1.9", "lat": 3.014637, "lng": 101.436525, "addr": "66, Jalan Batu Unjur 1, Taman Bayu Perdana, 41200 Klang, Selangor, Malaysia", "notes": ""}, {"id": "fm-wf-287", "zh": "廣肇會館", "alt": "Kuang-Chao hui-kuan, Landsmannschaft of people from Kuang-cho and Chao-ch'ing prefecture", "origin": "廣東／廣府四邑", "color": "#dc2626", "year": 1950, "frankeNo": "K1.10", "lat": 3.040293, "lng": 101.452137, "addr": "Jalan Raya Timur, Kawasan 1, 41000 Klang, Selangor, Malaysia", "notes": ""}, {"id": "fm-wf-288", "zh": "惠安公會", "alt": "Hui-an kung-hui, Landsmannschaft of people from Hui-an county", "origin": "福建／閩南", "color": "#2563eb", "year": 1946, "frankeNo": "K1.11", "lat": 3.030041, "lng": 101.431178, "addr": "114, Persiaran Raja Muda Musa, Taman Sri Pesona, 41100 Klang, Selangor, Malaysia", "notes": "曾用名Hui-an pieh-shu別墅，Hui-an t'ung-hsiang-hui同鄉會。"}, {"id": "fm-wf-289", "zh": "瓊州會館", "alt": "Ch'iung-chou hui-kuan (Kheng Chew Hoey Kuan), Hainan Landsmannschaft", "origin": "海南／瓊州", "color": "#ea580c", "year": 1916, "frankeNo": "K1.12", "lat": 3.042203, "lng": 101.4481, "addr": "Jalan Tengku Diaudin, Kawasan 1, 41000 Klang, Selangor, Malaysia", "notes": "疑似。現存最早文物K1.12.1 (1953)。"}, {"id": "fm-wf-303", "zh": "福建公所", "alt": "Fu-chien kung-so, Fukien Landsmannschaft", "origin": "福建／閩南", "color": "#2563eb", "year": 1937, "frankeNo": "K6.2", "lat": 2.996899, "lng": 101.789601, "addr": "3, Jalan Timur, Bandar Kajang, 43000 Kajang, Selangor, Malaysia", "notes": ""}, {"id": "fm-wf-313", "zh": "瓊州會館", "alt": "Ch'iung-chou hui-kuan (Kheng Chew Hwee Kuan), Hainan Landsmannschaft", "origin": "海南／瓊州", "color": "#ea580c", "year": 1860, "frankeNo": "L1.6", "lat": 5.335043, "lng": 103.136783, "addr": "6, Jalan Kota, Kampung Panglima, 20000 Kuala Terengganu, Terengganu, Malaysia", "notes": "現存最早文物L1.6.1 (1951)"}, {"id": "fm-wf-314", "zh": "福建會館", "alt": "Fu-chien hui-kuan, Fukien Landsmannschaft", "origin": "福建／閩南", "color": "#2563eb", "year": 1958, "frankeNo": "L1.7", "lat": 5.329756, "lng": 103.137387, "addr": "104-A & B, Tingkat 2 & 3, Jalan Sultan Ismail, 20200 Kuala Terengganu, Terengganu, Malaysia", "notes": ""}, {"id": "fm-wf-329", "zh": "瓊州會館", "alt": "Ch'iung-chou hui-kuan, Hainan Landsmannschaft", "origin": "海南／瓊州", "color": "#ea580c", "year": 1890, "frankeNo": "M4.5", "lat": 5.277479, "lng": 115.243259, "addr": "Jalan Bunga Melor, Bandar Labuan, 87000 Labuan, Wilayah Persekutuan Labuan, Malaysia", "notes": "現存最早文物M4.5.1 (1958)。"}, {"id": "fm-wf-342", "zh": "瓊州會館", "alt": "Ch'iung-chou hui-kuan (Keng Chew Association), Hainan Landsmannschaft", "origin": "海南／瓊州", "color": "#ea580c", "year": 1958, "frankeNo": "M8.9", "lat": 5.863846, "lng": 118.119155, "addr": "Lor Grandview 3A, 90000 Sandakan, Sabah, Malaysia", "notes": ""}, {"id": "fm-wf-363", "zh": "瓊州公會", "alt": "Ch'iung-chou kung-hui (Kheng Chew Association), Hainan Landsmannschaft", "origin": "海南／瓊州", "color": "#ea580c", "year": 1885, "frankeNo": "N1.10", "lat": 1.55808, "lng": 110.346248, "addr": "40, First Floor, Carpenter St, Main Bazaar, 93000 Kuching, Sarawak, Malaysia", "notes": ""}, {"id": "fm-wf-364", "zh": "廣肇惠會館", "alt": "Kuang Chao Hui hui-kuan, Landsmannschaft of people originating from the three prefectures of Kuang-chou, Chao-ch'ing, and Hui-chou", "origin": "廣東／廣府四邑", "color": "#dc2626", "year": 1916, "frankeNo": "N1.11", "lat": 1.552933, "lng": 110.364206, "addr": "Lot 116-118, No. 80,82 & 84, Jalan Ang Cheng Ho, 93100 Kuching, Sarawak, Malaysia", "notes": ""}, {"id": "fm-wf-379", "zh": "瓊州公會", "alt": "Ch'iung-chou kung-hui, Hainan Landsmannschaft", "origin": "海南／瓊州", "color": "#ea580c", "year": 1949, "frankeNo": "N8.3", "lat": null, "lng": null, "addr": "（無現代定位地址）", "notes": ""}, {"id": "fm-wf-382", "zh": "客屬公會", "alt": "K'o-shu kung-hui, Hakka Landsmannschaft", "origin": "客家／客屬", "color": "#16a34a", "year": 1950, "frankeNo": "N9.3", "lat": 4.390365, "lng": 113.985642, "addr": "L2 , Centre Point Miri , Jalan Melayu , 98000 Miri , Sarawak, 98000, Malaysia", "notes": ""}, {"id": "fm-wf-383", "zh": "詔安會館", "alt": "Chao-an hui-kuan, Landsmannschaft of people from Chao-an county, Chang-chou prefecture", "origin": "福建／閩南", "color": "#2563eb", "year": 1951, "frankeNo": "N9.4", "lat": 4.422636, "lng": 114.004415, "addr": "C2F3+3Q3 Valencia Park, Miri, Malaysia", "notes": ""}, {"id": "fm-wf-384", "zh": "福州公會", "alt": "Fu-chou kung-hui, (Miri Foochow Association), Landsmannschaft of people from Fu-chou prefecture", "origin": "福建／閩南", "color": "#2563eb", "year": 1951, "frankeNo": "N9.5", "lat": 4.421345, "lng": 114.004864, "addr": "C2C3+GW Valencia Park, Miri, Malaysia", "notes": ""}];
+        const otherSitesData = [{"id": "fm-wf-001", "zh": "仙四師爺宮", "alt": "Hsien ssu shih-yeh kung, temple of Hsien ssu shih-yeh", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1881, "frankeNo": "A1.1", "lat": 3.145588, "lng": 101.696447, "addr": "113A, Jalan Tun H S Lee, City Centre, 50050 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur, Malaysia", "notes": ""}, {"id": "fm-wf-002", "zh": "鍾呂仙師廟, 鍾萬宮", "alt": "Chung-lü hsien-shih miao, temple to holy Immortals Chung and Lü, Chung Wan kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1888, "frankeNo": "A1.2", "lat": 3.134666, "lng": 101.713936, "addr": "Jalan Pasar, Pudu, 55100 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur, Malaysia", "notes": ""}, {"id": "fm-wf-003", "zh": "登彼岸", "alt": "Teng-pi-an", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1889, "frankeNo": "A1.3", "lat": 3.159709, "lng": 101.715723, "addr": "Jln Ampang, Kuala Lumpur, 50450 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur, Malaysia", "notes": "曾用名Kuan-yin fo-t'ang觀音佛堂。"}, {"id": "fm-wf-004", "zh": "蓮花庵", "alt": "Lien-hua an, Lotus Flower temple", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1889, "frankeNo": "A1.4", "lat": 3.146064, "lng": 101.763219, "addr": "77, Jalan Besar Ampang, Pekan Ampang, 68000 Ampang, Selangor, Malaysia", "notes": ""}, {"id": "fm-wf-005", "zh": "霖田祖廟, 三山國王廟", "alt": "Lin-t'ien-tsu miao, San-shan kuo-wang miao, Temple of the Kings of the Three Mountains", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1893, "frankeNo": "A1.5", "lat": 3.222476, "lng": 101.657851, "addr": "3607, Jalan Jinjang Murni 12, Jinjang Utara, 52000 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur, Malaysia", "notes": ""}, {"id": "fm-wf-006", "zh": "觀音亭, 威震宮", "alt": "Kuan-yin t'ing, Wei-chen kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1898, "frankeNo": "A1.6", "lat": 3.188167, "lng": 101.703728, "addr": "390, Jalan Pahang, Setapak, 53000 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur, Malaysia", "notes": ""}, {"id": "fm-wf-007", "zh": "天后宮", "alt": "T'ien-hou kung, Temple of Heavenly Queen", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1901, "frankeNo": "A1.7", "lat": 3.132112, "lng": 101.712963, "addr": "16, Jln Sungai Besi, Pudu, 57100 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur, Malaysia", "notes": ""}, {"id": "fm-wf-008", "zh": "譚公仙師廟", "alt": "T'an-kung hsien-shih miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1902, "frankeNo": "A1.8", "lat": 3.021521, "lng": 101.704768, "addr": "Jalan Besar, Kampung Baru Seri Kembangan, 43300 Seri Kembangan, Selangor, Malaysia", "notes": "疑似。"}, {"id": "fm-wf-010", "zh": "雷王廟", "alt": "Lei-wang miao, Temple of King of Thunder", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1909, "frankeNo": "A1.10", "lat": 3.158902, "lng": 101.748382, "addr": "649, Lorong Ampang Ulu, Kampung Berembang, 55000 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur, Malaysia", "notes": ""}, {"id": "fm-wf-011", "zh": "譚公仙聖廟", "alt": "T'an-kung hsien-sheng miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1917, "frankeNo": "A1.11", "lat": 3.145922, "lng": 101.763133, "addr": "78, Jalan Besar Ampang, Pekan Ampang, 68000 Ampang, Selangor, Malaysia", "notes": ""}, {"id": "fm-wf-012", "zh": "彌陀巖", "alt": "Mi-t'o-yen, Amitābha grotto", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1906, "frankeNo": "A1.12", "lat": 3.150862, "lng": 101.760944, "addr": "314, Main Street, Kampung Melayu Ampang, 68000 Ampang, Selangor", "notes": "現存最早文物A1.12.1 (1918)。"}, {"id": "fm-wf-013", "zh": "大覺華寺", "alt": "Ta-chüeh hua-ssu", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1919, "frankeNo": "A1.13", "lat": 3.1166, "lng": 101.73451, "addr": "Jalan Senjolong, Taman Pertama, 55300 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur, Malaysia", "notes": ""}, {"id": "fm-wf-016", "zh": "千佛寺", "alt": "Ch'ien-fo ssu, Temple of thousand Buddhas", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1936, "frankeNo": "A1.16", "lat": 3.117286, "lng": 101.697148, "addr": "Jalan Kerayong, Wilayah Persekutuan50460 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur, Malaysia", "notes": ""}, {"id": "fm-wf-017", "zh": "七寶禪寺", "alt": "Ch'i-pao ch'an-ssu, Buddhist temple of Seven Treasures", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1920, "frankeNo": "A1.17", "lat": 3.080747, "lng": 101.699006, "addr": "Wilayah Persekutuan Kuala Lumpur, Kuala Lumpur, Jalan Sungai Besi, Batu", "notes": "現存最早文物A1.17.1 (1938), A1.17.2 (1938)。"}, {"id": "fm-wf-018", "zh": "南天宮, 斗母宮", "alt": "Nan-t'ien kung, Tou-mu kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1882, "frankeNo": "A1.18", "lat": 3.141716, "lng": 101.764454, "addr": "P1, Jalan Merdeka, Kampung Baru Ampang, 68000 Ampang, Selangor, Malaysia", "notes": ""}, {"id": "fm-wf-019", "zh": "廣東義山", "alt": "Kuangtung Cemetery, Kuang-tung i-shan", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1891, "frankeNo": "A1.19", "lat": 3.120373, "lng": 101.699528, "addr": "Jalan Kerayong, Pengkalan Tentera Udara Diraja Malaysia, 50460 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur, Malaysia", "notes": ""}, {"id": "fm-wf-020", "zh": "福建義山", "alt": "Fukien Cemetery, Fu-chien i-shan", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1918, "frankeNo": "A1.20", "lat": 3.123904, "lng": 101.697307, "addr": "Jalan Kerayong, Bukit Seputeh, 50460 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur, Malaysia", "notes": ""}, {"id": "fm-wf-021", "zh": "—", "alt": "Tombstones and memorial inscriptions outside Kuangtung and Fukien cemeteries", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1890, "frankeNo": "A1.21", "lat": 3.123851, "lng": 101.697261, "addr": "Jalan Kerayong, Bukit Seputeh, 50460 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur, Malaysia", "notes": ""}, {"id": "fm-wf-031", "zh": "陳氏書院", "alt": "Ch'en-shih shu-yüan, traditional-style lineage school and ancestor hall of whole Ch'en clan", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1908, "frankeNo": "A1.31", "lat": 3.140454, "lng": 101.698402, "addr": "172, Jalan Petaling, City Centre, 50000 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur, Malaysia", "notes": ""}, {"id": "fm-wf-032", "zh": "大同學校", "alt": "Ta-t'ung hsüeh-hsiao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1914, "frankeNo": "A1.32", "lat": 3.10554, "lng": 101.705634, "addr": "Salak South, 57100 Kuala Lumpur, Federal Territory of Kuala Lumpur, Malaysia", "notes": ""}, {"id": "fm-wf-033", "zh": "積善堂", "alt": "Chi-shan-t'ang", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1895, "frankeNo": "A1.33", "lat": 3.206588, "lng": 101.663921, "addr": "182, Jalan Jambu Arang 2, Jinjang Selatan, 52000 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur, Malaysia", "notes": ""}, {"id": "fm-wf-036", "zh": "同善醫院", "alt": "T'ung-shan i-yüan, Selangor Tung Shin Hospital", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1960, "frankeNo": "A1.36", "lat": 3.146668, "lng": 101.704043, "addr": "102, Jln Pudu, Bukit Bintang, 55100 Kuala Lumpur, Wilayah Persekutuan Kuala Lumpur, Malaysia", "notes": ""}, {"id": "fm-wf-037", "zh": "柔佛古廟", "alt": "Jou-fu ku-miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1860, "frankeNo": "B1.1", "lat": 1.460688, "lng": 103.763064, "addr": "Lot 653, Jalan Trus, Bandar Johor Bahru, 80000 Johor Bahru, Johor, Malaysia", "notes": "現存最早文物B1.1.1 (1870)。"}, {"id": "fm-wf-038", "zh": "華僑義山", "alt": "Hua-ch'iao i-shan, Chinese cemetery", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1913, "frankeNo": "B1.2", "lat": 1.477502, "lng": 103.75218, "addr": "1, Jalan Ulu Air Molek, Yahya Awal, 80300 Johor Bahru, Johor, Malaysia", "notes": ""}, {"id": "fm-wf-040", "zh": "寬柔學校", "alt": "K'uan-joh süeh-hsiao, Foon Yew School", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1913, "frankeNo": "B1.4", "lat": 1.496959, "lng": 103.761715, "addr": "91, Jalan Kebun Teh, Taman Kebun Teh, 80250 Johor Bahru, Johor, Malaysia", "notes": "現存最早文物B1.4.1 (1917)。"}, {"id": "fm-wf-041", "zh": "普陀寺", "alt": "P'u-t'o szu", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1924, "frankeNo": "B2.1", "lat": 1.847444, "lng": 102.937214, "addr": "13, Jalan Murai, Kampung Pegawai, 83000 Batu Pahat, Johor, Malaysia", "notes": ""}, {"id": "fm-wf-042", "zh": "華僑公塚", "alt": "Hua-ch'iao kung-chung, Chinese Cemetery", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1906, "frankeNo": "B2.2", "lat": 1.832113, "lng": 102.950583, "addr": "Off, Jalan Tanjong Laboh, 83000 Batu Pahat, Johor, Malaysia", "notes": ""}, {"id": "fm-wf-043", "zh": "廣東義山", "alt": "Kuang-tung i-shan, Cantonese cemetery", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1915, "frankeNo": "B2.3", "lat": 1.863542, "lng": 102.965376, "addr": "Taman Sri Saga, 83000 Batu Pahat, Johor, Malaysia", "notes": "現存最早文物B2.2.1 (1927)。"}, {"id": "fm-wf-044", "zh": "林氏宗祠, 九龍堂", "alt": "Lin-shih tsung-t'zu, Chiu-lung t'ang, Ancestral Temple of Lin lineage", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1932, "frankeNo": "B2.4", "lat": 1.849165, "lng": 102.927834, "addr": "3, Jalan Fatimah, Kampung Sateh, 83000 Batu Pahat, Johor, Malaysia", "notes": ""}, {"id": "fm-wf-048", "zh": "天后宮", "alt": "T'ien-hou kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1917, "frankeNo": "B5.1", "lat": 1.702777, "lng": 103.913991, "addr": "81900 Kota Tinggi, Johor, Malaysia", "notes": ""}, {"id": "fm-wf-051", "zh": "福順廟", "alt": "Fu-shun miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1926, "frankeNo": "B6.1", "lat": 2.430385, "lng": 103.835283, "addr": "Mersing Kechil, 86800 Mersing, Johor, Malaysia", "notes": ""}, {"id": "fm-wf-052", "zh": "新觀音堂", "alt": "Hsin Kuan-yin t'ang, New Kuan-yin Temple", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1895, "frankeNo": "B7.1", "lat": 2.050099, "lng": 102.569948, "addr": "104, Jalan Maharani, Taman Sri Emas, 84000 Muar, Johor, Malaysia", "notes": ""}, {"id": "fm-wf-054", "zh": "大伯公宮", "alt": "Ta-po-kung kung, Temple of Ta-po-kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1956, "frankeNo": "B8.1", "lat": 1.492252, "lng": 103.403733, "addr": "Kampung Duku, 82000 Pontian District, Johor, Malaysia", "notes": ""}, {"id": "fm-wf-055", "zh": "—", "alt": "Pontian cemetery", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1946, "frankeNo": "B8.2", "lat": 1.476872, "lng": 103.397201, "addr": "Jalan Kukup, Pontian Kecil, 82000 Pontian, Johor, Malaysia", "notes": ""}, {"id": "fm-wf-056", "zh": "慈光亭", "alt": "Tz'u-kuang t'ing, Temple of Merciful Light (of Buddha)", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1940, "frankeNo": "B9.1", "lat": 2.502111, "lng": 102.822189, "addr": "1, Jalan Genuang, Kampung Abdullah, 85000 Segamat, Johor, Malaysia", "notes": "現存最早文物B9.1.1 (1960)。"}, {"id": "fm-wf-057", "zh": "靈福宮", "alt": "Ling-fu kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1918, "frankeNo": "B10.1", "lat": 1.749976, "lng": 103.053268, "addr": "Chinese Temple, Kampung Bahru, 83200 Senggarang, Johor, Malaysia", "notes": ""}, {"id": "fm-wf-058", "zh": "廣福宮", "alt": "Kuang-fu kung, Kuang-fu temple", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1928, "frankeNo": "C1.1", "lat": 6.099965, "lng": 100.367317, "addr": "Jalan Tok Pekong, Kampung Telok05400 Alor Setar, Kedah, Malaysia", "notes": ""}, {"id": "fm-wf-059", "zh": "觀音亭", "alt": "Kuan-yin t'ing, Kuan-yin temple", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1944, "frankeNo": "C1.2", "lat": 6.112312, "lng": 100.364249, "addr": "87, Jalan Masjid, Taman Pesisiran Tanjung Chali, 05050 Alor Setar, Kedah, Malaysia", "notes": ""}, {"id": "fm-wf-061", "zh": "—", "alt": "Chinese cemetery", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1853, "frankeNo": "C1.4", "lat": 6.137331, "lng": 100.374182, "addr": "4010, Jln Tun Razak, Taman Pknk, 05200 Alor Setar, Kedah, Malaysia", "notes": ""}, {"id": "fm-wf-064", "zh": "福建公会", "alt": "Fu-chien kung-hui, Landsmannschaft of all Fukien people", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1963, "frankeNo": "C1.7", "lat": 6.11762, "lng": 100.364096, "addr": "05000, 44-53, Jalan Penjara Lama, Bandar Alor Setar, 05000 Alor Setar, Kedah, Malaysia", "notes": ""}, {"id": "fm-wf-065", "zh": "廣福宮", "alt": "Kuang-fu kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1940, "frankeNo": "C2.1", "lat": 5.298256, "lng": 100.534093, "addr": "26, Jln Ayer Puteh, Kampung Tasek Cempedak, 09000 Kulim, Kedah, Malaysia", "notes": ""}, {"id": "fm-wf-066", "zh": "慶興廟", "alt": "Ch'ing-hsing miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1937, "frankeNo": "C3.1", "lat": 6.362292, "lng": 100.333347, "addr": "30, 176, Kampung Pering, 06100 Kodiang, Kedah, Malaysia", "notes": ""}, {"id": "fm-wf-067", "zh": "啅公宮", "alt": "Cho-kung kung, temple of Lord Lan-cho", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1910, "frankeNo": "C4.1", "lat": 6.319243, "lng": 99.851097, "addr": "Persiaran Putera, Kuah, 07000 Langkawi, Kedah, Malaysia", "notes": ""}, {"id": "fm-wf-068", "zh": "—", "alt": "Kuah cemetery", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1918, "frankeNo": "C4.2", "lat": 6.31401, "lng": 99.86223, "addr": "07000 Langkawi, Kedah, Malaysia", "notes": ""}, {"id": "fm-wf-071", "zh": "福德祠", "alt": "Fu-te tz'u, Ta-po kung miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1906, "frankeNo": "C5.1", "lat": 5.637536, "lng": 100.493719, "addr": "430. ,08000, Kampung Pekan Lama, 08000 Sungai Petani, Kedah, Malaysia", "notes": ""}, {"id": "fm-wf-073", "zh": "鎮興宮", "alt": "Chen-hsing kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1751, "frankeNo": "D1.1", "lat": 6.143663, "lng": 102.235337, "addr": "Jalan Kampung Cina, Bandar Kota Bharu, 15300 Kota Bharu, Kelantan, Malaysia", "notes": "現存最早文物D1.1.1 (1868)。"}, {"id": "fm-wf-074", "zh": "聖春宮", "alt": "Sheng-ch'un kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1727, "frankeNo": "D1.2", "lat": 5.95042, "lng": 102.207329, "addr": "Malaysia Kelantan, Ketereh, Kampung Tok Kong, Lot 1439 postcode: 16450", "notes": "現存最早文物D1.2.1 (1871)。"}, {"id": "fm-wf-080", "zh": "青雲亭", "alt": "Ch'ing-yün t'ing (Cheng Hoon Teng), temple of Blue Clouds", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1673, "frankeNo": "E1.1", "lat": 2.197599, "lng": 102.246947, "addr": "25, Jalan Tokong, Kampung Dua, 75200 Melaka, Malaysia", "notes": "現存最早文物E1.1.1 (1685)。"}, {"id": "fm-wf-081", "zh": "寶山亭", "alt": "Pao-shan t'ing", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1795, "frankeNo": "E1.2", "lat": 2.195987, "lng": 102.255525, "addr": "Jalan Puteri Hang Li Poh, Bukit Cina, 75100 Melaka, Malaysia", "notes": ""}, {"id": "fm-wf-082", "zh": "保安宮", "alt": "Pao-an kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1841, "frankeNo": "E1.3", "lat": 2.200475, "lng": 102.251788, "addr": "Jln. Bunga Raya, 75100 Melaka, Malaysia", "notes": ""}, {"id": "fm-wf-083", "zh": "勇全殿", "alt": "Yung-ch‘üan tien", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1837, "frankeNo": "E1.4", "lat": 2.189149, "lng": 102.25825, "addr": "Jln Parameswara, 75000 Melaka, Malaysia", "notes": ""}, {"id": "fm-wf-084", "zh": "清華宮", "alt": "Ch'ing-hua kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1847, "frankeNo": "E1.5", "lat": 2.18934, "lng": 102.292899, "addr": "Jalan Semabok, Kampung Ujong, 75050 Melaka, Malaysia", "notes": ""}, {"id": "fm-wf-085", "zh": "大伯公祠", "alt": "Ta-po-kung tz'u, Ta-po-kung Temple", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1852, "frankeNo": "E1.6", "lat": 2.265336, "lng": 102.376367, "addr": "1964, 144, 77200 Bemban, Melaka, Malaysia", "notes": ""}, {"id": "fm-wf-086", "zh": "玉虛宮", "alt": "Yü-hsü kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1863, "frankeNo": "E1.7", "lat": 2.20846, "lng": 102.21667, "addr": "2½, 75200, Malacca", "notes": ""}, {"id": "fm-wf-087", "zh": "三多廟, 福德祠, 大伯公廟", "alt": "San-to miao, Fu-te tz'u, Ta-po kung miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1857, "frankeNo": "E1.8", "lat": 2.196126, "lng": 102.248203, "addr": "41, Jalan Tukang Besi, 75200 Melaka, Malaysia", "notes": ""}, {"id": "fm-wf-088", "zh": "天德宮", "alt": "T'ien-te kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1884, "frankeNo": "E1.9", "lat": 2.19722, "lng": 102.246149, "addr": "118, Jalan Hang Jebat, 75200 Melaka, Malaysia", "notes": ""}, {"id": "fm-wf-089", "zh": "和勝宮, 廣福廟", "alt": "Ho-sheng kung, Kuang-fu miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1888, "frankeNo": "E1.10", "lat": 2.263988, "lng": 102.208479, "addr": "Taman Cheng Perdana, 75250 Malacca, Malaysia", "notes": ""}, {"id": "fm-wf-090", "zh": "湖海殿", "alt": "Hu-hai tien", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1890, "frankeNo": "E1.11", "lat": 2.196675, "lng": 102.249544, "addr": "13, Jalan Kampung Pantai, 75200 Melaka, Malaysia", "notes": ""}, {"id": "fm-wf-091", "zh": "觀音堂", "alt": "Kuan-yin t'ang", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1894, "frankeNo": "E1.12", "lat": 2.197935, "lng": 102.245097, "addr": "133, Jalan Hang Jebat, 75200 Melaka, Malaysia", "notes": ""}, {"id": "fm-wf-093", "zh": "廣福宮, 鳳山分寺", "alt": "Kuang-fu kung, Feng-shan fen-ssu", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1904, "frankeNo": "E1.14", "lat": 2.197913, "lng": 102.245964, "addr": "Jalan Portugis, Kampung Satu, 75200 Melaka, Malaysia", "notes": ""}, {"id": "fm-wf-094", "zh": "靈山亭", "alt": "Ling-shan t'ing", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1910, "frankeNo": "E1.15", "lat": 2.25646, "lng": 102.25754, "addr": "Kampung Sungai Putat, 75350 Malacca, Malaysia", "notes": ""}, {"id": "fm-wf-095", "zh": "華德宮", "alt": "Hua-te kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1921, "frankeNo": "E1.16", "lat": 2.19837, "lng": 102.245678, "addr": "Jalan Laksamana 4, Kampung Tiga, 75200 Melaka", "notes": ""}, {"id": "fm-wf-096", "zh": "德教會, 紫德教", "alt": "Te-chiao hui, Moral Uplifting Society, Tz'u-te chiao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1959, "frankeNo": "E1.17", "lat": 2.197293, "lng": 102.244748, "addr": "139, Jalan Tun Tan Cheng Lock, Taman Kota Laksamana, 75200 Melaka", "notes": ""}, {"id": "fm-wf-097", "zh": "三寶山", "alt": "San-pao shan Cemetery, Bukit China", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1622, "frankeNo": "E1.18", "lat": 2.198658, "lng": 102.256937, "addr": "26-A, Bukit China Road, 75100, Melaka, Melaka, Kampung Bukit China, 75100 Malacca, Malaysia", "notes": ""}, {"id": "fm-wf-098", "zh": "嘉應義塚", "alt": "Chia-ying i-chung, cemetery of Hakka people from Chia-ying chou", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1824, "frankeNo": "E1.19", "lat": 2.219431, "lng": 102.323354, "addr": "Jalan Ayer Molek / Jasin, Kampung Pengkalan Minyak, 75460 Ayer Molek, Melaka, Malaysia", "notes": "疑似。"}, {"id": "fm-wf-099", "zh": "瓊崖義山, 瓊崖息鴻亭", "alt": "Ch'iung-yai i-shan, Hainan Cemetery, Ch'iung-yai hsi-hung t'ing", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1920, "frankeNo": "E1.20", "lat": 2.2386, "lng": 102.225339, "addr": "Batu 3 3/4, Jalan Malim, 75260 Melaka, Malaysia", "notes": "疑似。"}, {"id": "fm-wf-101", "zh": "—", "alt": "War Memorial of 1947", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1947, "frankeNo": "E1.22", "lat": 2.195573, "lng": 102.255339, "addr": "165, Jalan Temenggong, Kampung Bukit China, 75000 Melaka, Malaysia", "notes": ""}, {"id": "fm-wf-114", "zh": "林氏西河堂", "alt": "Lin-shih hsi-ho t'ang, ancestral temple of the whole Lin clan", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1917, "frankeNo": "E1.35", "lat": 2.197126, "lng": 102.246272, "addr": "108, Jalan Hang Jebat, 75200 Melaka", "notes": ""}, {"id": "fm-wf-115", "zh": "賴氏宗祠", "alt": "Lai-shih tsung-tz'u, ancestral temple of the Lai clan", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1961, "frankeNo": "E1.36", "lat": 2.195862, "lng": 102.247416, "addr": "29, Jalan Hang Jebat, 75200 Melaka, Malaysia", "notes": ""}, {"id": "fm-wf-119", "zh": "千古庙", "alt": "Ch'ien-ku-miao, Ssu shih-yeh miao, Kuan-yin t'ang", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1861, "frankeNo": "F1.1", "lat": 2.698888, "lng": 101.943289, "addr": "Bukit Rasah, 70300 Seremban, Negeri Sembilan, Malaysia", "notes": ""}, {"id": "fm-wf-120", "zh": "天师爷宫", "alt": "T'ien shih-yeh kung, the 'Temple of the Heavenly Master'", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1863, "frankeNo": "F1.2", "lat": 2.745993, "lng": 101.941397, "addr": "Jalan Bukit Termiang 1, 70200 Seremban, Negeri Sembilan, Malaysia", "notes": ""}, {"id": "fm-wf-121", "zh": "谭公仙圣庙", "alt": "T'an-kung hsien-sheng miao, Temple of T'an-kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1891, "frankeNo": "F1.3", "lat": 2.729481, "lng": 101.939028, "addr": "Jalan Kapitan Tam Yeong, Taman Sim, 70000 Seremban, Negeri Sembilan, Malaysia", "notes": ""}, {"id": "fm-wf-122", "zh": "紫竹（竺）亭", "alt": "Tz'u-chu t'ing", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1907, "frankeNo": "F1.4", "lat": 2.737104, "lng": 101.932118, "addr": "Seremban, 70200 Seremban, Negeri Sembilan, Malaysia", "notes": "現存最早文物F1.4.1 (1911)。"}, {"id": "fm-wf-123", "zh": "天公五老觀, 靑山觀", "alt": "T'ien-kung wu-lao kuan, Ch'ing-shan kuan", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1928, "frankeNo": "F1.5", "lat": 2.738319, "lng": 101.94372, "addr": "Jalan Bukit Termiang 1, Taman Bukit Temiang, 70200 Seremban, Negeri Sembilan, Malaysia", "notes": ""}, {"id": "fm-wf-130", "zh": "三聖宮", "alt": "San-sheng kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1900, "frankeNo": "F3.1", "lat": 2.741855, "lng": 102.248905, "addr": "No. 9, Negeri Sembilan, 72000 Kuala Pilah, Negeri Sembilan, Malaysia", "notes": ""}, {"id": "fm-wf-134", "zh": "瓊州（公）廟, 天后宮", "alt": "Ch'iung-chou (kung) miao, T'ien-hou kung, temple of Hainan people", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1900, "frankeNo": "G1.1", "lat": 3.81484, "lng": 103.315808, "addr": "67, Jalan Bukit Ubi, Taman Sungai Charu, 25200 Kuantan, Pahang, Malaysia", "notes": "現存最早文物G1.1.1 (1905)。"}, {"id": "fm-wf-135", "zh": "廣福廟", "alt": "Kuang-fu miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1909, "frankeNo": "G1.2", "lat": 3.809362, "lng": 103.314901, "addr": "Jalan Bukit Setongkol, Kampung Jalan Corry, 25200 Kuantan, Pahang, Malaysia", "notes": ""}, {"id": "fm-wf-136", "zh": "地母廟", "alt": "Ti-mu miao, temple of the Earth Mother", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1952, "frankeNo": "G1.3", "lat": 3.809499, "lng": 103.31516, "addr": "Kampung Jalan Corry, 25200 Kuantan, Pahang, Malaysia", "notes": ""}, {"id": "fm-wf-138", "zh": "廣福廟", "alt": "Kuang-fu miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1900, "frankeNo": "G2.1", "lat": 3.809491, "lng": 103.314911, "addr": "Jalan Bukit Setongkol, Kampung Jalan Corry, 25200 Kuantan, Pahang, Malaysia", "notes": ""}, {"id": "fm-wf-140", "zh": "兩廣義山", "alt": "Liang Kuang i-shan, cemetery for people from Kuangtung and Kuangsi", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1950, "frankeNo": "G2.3", "lat": 3.527241, "lng": 101.899495, "addr": "C136, Kampung Chamang, 28700 Bentong, Pahang, Malaysia", "notes": ""}, {"id": "fm-wf-141", "zh": "天后宮", "alt": "T'ien-hou kung, temple of T'ien-hou", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1898, "frankeNo": "G3.1", "lat": 4.185959, "lng": 102.055044, "addr": "Jalan Jelai, 27200 Kuala Lipis, Pahang, Malaysia", "notes": ""}, {"id": "fm-wf-142", "zh": "客屬義山", "alt": "K'o-shu i-shan, Hakka cemetery", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1933, "frankeNo": "G3.2", "lat": 4.171488, "lng": 102.042224, "addr": "Kampung Tanjung Rambai, 27200 Kuala Lipis, Pahang, Malaysia", "notes": "疑似。"}, {"id": "fm-wf-144", "zh": "—", "alt": "memorial for those killed during the Japanese occupation, 1941-5", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1946, "frankeNo": "G4.1", "lat": 3.488296, "lng": 102.348456, "addr": "Jln Tun Razak, Taman Bendera, 28400 Mentakab, Pahang, Malaysia", "notes": ""}, {"id": "fm-wf-146", "zh": "伯公廟, 列聖宮", "alt": "Po-kung miao, Lieh sheng kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1763, "frankeNo": "G5.1", "lat": 3.488307, "lng": 103.394805, "addr": "Jalan Haji Montok, Kampung Pancur, 26600 Pekan, Pahang, Malaysia", "notes": ""}, {"id": "fm-wf-150", "zh": "觀音堂", "alt": "Kuan-yin t'ang, Kuan-yin Temple", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1910, "frankeNo": "G6.1", "lat": 3.487811, "lng": 103.39667, "addr": "Jalan Haji Montok, Kampung Pancur, 26600 Pekan, Pahang, Malaysia", "notes": "現存最早文物G1.6.1 (1908)。"}, {"id": "fm-wf-151", "zh": "—", "alt": "Cemeteries", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1903, "frankeNo": "G6.2", "lat": 3.800458, "lng": 101.880438, "addr": "27600 Raub, Unnamed Road, Pahang, Malaysia", "notes": ""}, {"id": "fm-wf-152", "zh": "天后宮", "alt": "T'ien-hou kung, temple of the Queen of Heaven", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1956, "frankeNo": "G7.1", "lat": 3.453941, "lng": 102.418712, "addr": "Pahang, Temerloh, Kampung Sri Temerluh, 67, Malaysia", "notes": ""}, {"id": "fm-wf-154", "zh": "海珠嶼大伯公廟", "alt": "Hai-chu-yü Ta-po-kung miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1792, "frankeNo": "H1.1", "lat": 5.463811, "lng": 100.307452, "addr": "Tanjung Tokong, 11200 Tanjung Tokong, Penang, Malaysia", "notes": ""}, {"id": "fm-wf-155", "zh": "廣福宮, 觀音亭", "alt": "Kuang-fu kung, Kuan-yin t'ing, Pitt Street Chinese Temple", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1800, "frankeNo": "H1.2", "lat": 5.419219, "lng": 100.339261, "addr": "30, Jln Masjid Kapitan Keling, George Town, 10200 George Town, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-156", "zh": "大伯公福德祠", "alt": "Ta-po kung Fu-te tz'u", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1810, "frankeNo": "H1.3", "lat": 5.41808, "lng": 100.339933, "addr": "King Street, George Town, 10450 George Town, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-157", "zh": "水美宮", "alt": "Shui-mei kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1862, "frankeNo": "H1.4", "lat": 5.439653, "lng": 100.306742, "addr": "74, Jalan Bagan Jermal, 10470 Pulau Pinang, 10470 George Town, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-158", "zh": "鳳山寺", "alt": "Feng-shan ssu", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1860, "frankeNo": "H1.5", "lat": 5.407141, "lng": 100.336206, "addr": "10300 George Town, Penang, Malaysia", "notes": "現存最早文物H1.5.1 (1862/3)。"}, {"id": "fm-wf-159", "zh": "開山王廟", "alt": "K'ai-shan wang miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1864, "frankeNo": "H1.6", "lat": 5.390088, "lng": 100.314139, "addr": "Jalan Pokok Asam, Jelutong, 11600 Jelutong, Pulau Pinang, Malaysia", "notes": "現存最早文物H1.6.1 (1866)。"}, {"id": "fm-wf-160", "zh": "胡靖古廟", "alt": "Hu Ching ku miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1832, "frankeNo": "H1.7", "lat": 5.419667, "lng": 100.335833, "addr": "41, Lebuh Muntri, George Town, 10450 George Town, Pulau Pinang, Malaysia", "notes": "現存最早文物App. (1871)。"}, {"id": "fm-wf-161", "zh": "清雲巖, 蛇廟, 青龍廟", "alt": "Ch'ing-yün yen, She-miao, Snake Temple, Ch'ing-lung miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1873, "frankeNo": "H1.8", "lat": 5.314256, "lng": 100.285586, "addr": "Jalan Sultan Azlan Shah, Bayan Lepas Industrial Park, 11900 Bayan Lepas, Pulau Pinang, Malaysia", "notes": "曾用名Fu-hsing kung福興宮。"}, {"id": "fm-wf-162", "zh": "魯班古廟", "alt": "Lu Pan ku-miao, temple of Lu Pan", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1886, "frankeNo": "H1.9", "lat": 5.419324, "lng": 100.336378, "addr": "Lorong Love, George Town, 10200 George Town, Pulau Pinang, Malaysia", "notes": "現存最早文物H1.9.1 (1873)。"}, {"id": "fm-wf-163", "zh": "大生佛堂", "alt": "Ta-sheng fo-t'ang", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1875, "frankeNo": "H1.10", "lat": 5.41713, "lng": 100.322499, "addr": "212B, Jalan Macalister, 10300 Pulau Pinang, 10450 George Town, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-164", "zh": "福壽宮", "alt": "Fu-shou kung, Temple of Happiness and Long Life", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1877, "frankeNo": "H1.11", "lat": 5.429807, "lng": 100.313444, "addr": "228A, Jalan Burma, Pulau Tikus, 10350 George Town, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-165", "zh": "城隍廟", "alt": "Ch'eng-huang miao, temple of the City God", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1879, "frankeNo": "H1.12", "lat": 5.406323, "lng": 100.328947, "addr": "77-2-13, Jalan S.P. Chelliah, 10150 George Town, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-166", "zh": "劉關張趙廟", "alt": "Liu Kuan Chang Chao miao, ancestral temple of all with the family names Liu, Kuan, Chang, Chao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1880, "frankeNo": "H1.13", "lat": 5.416937, "lng": 100.339282, "addr": "67, King Street, George Town, 10200 George Town, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-167", "zh": "清觀寺", "alt": "Ch'ing-kuan ssu", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1881, "frankeNo": "H1.14", "lat": 5.383033, "lng": 100.26202, "addr": "Jln TM Bukit Penara, Pulau Pinang, Malaysia", "notes": "曾用名Ch'ao-yüan miao朝元廟, Ch'ao-yüan tung朝元洞。"}, {"id": "fm-wf-168", "zh": "大圓佛堂", "alt": "Ta-yüan fo-t'ang", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1883, "frankeNo": "H1.15", "lat": 5.417162, "lng": 100.322478, "addr": "212B, Jalan Macalister, 10300 Pulau Pinang, 10450 George Town, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-169", "zh": "清龍宮", "alt": "Ch'ing-lung kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1888, "frankeNo": "H1.16", "lat": 5.38676, "lng": 100.311172, "addr": "670-A, Jalan Jelutong, Pulau Pinang, 11600 George Town, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-170", "zh": "極樂寺", "alt": "Memorial for those killed during the Japanese occupation, 1941-5", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1891, "frankeNo": "H1.17", "lat": 5.399994, "lng": 100.273674, "addr": "Kek Lok Si Temple, Jln Balik Pulau, 11500 Air Itam, Penang, Malaysia", "notes": "現存最早文物H1.17.1 (1892)。"}, {"id": "fm-wf-171", "zh": "寶珠社", "alt": "Poa-chu she", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1902, "frankeNo": "H1.18", "lat": 5.417618, "lng": 100.339658, "addr": "King Street, George Town, 10200 George Town, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-172", "zh": "天公壇", "alt": "T'ien-kung t'an", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1869, "frankeNo": "H1.19", "lat": 5.409651, "lng": 100.277443, "addr": "Pulau Pinang, George Town, Thean Kong Thnuah, Malaysia", "notes": "現存最早文物H1.19.1 (1905)。"}, {"id": "fm-wf-173", "zh": "觀音寺, 蓮花閣", "alt": "Kuan-yin ssu, Lien-hua ko, Lotos-Pavilion", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1894, "frankeNo": "H1.20", "lat": 5.418916, "lng": 100.328093, "addr": "70, Jalan Burma, 10500 George Town, Pulau Pinan, Malaysia", "notes": ""}, {"id": "fm-wf-174", "zh": "寶譽堂", "alt": "Pao-yü t'ang", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1938, "frankeNo": "H1.21", "lat": 5.427928, "lng": 100.314618, "addr": "253, Jalan Burma, Pulau Tikus, 10350 George Town, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-175", "zh": "慈濟宮", "alt": "Tz'u-chi kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1955, "frankeNo": "H1.22", "lat": 5.415367, "lng": 100.337107, "addr": "57, Lbh Armenian, George Town, 10200 George Town, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-176", "zh": "廣東暨汀州義山", "alt": "Kuang-tung chi T'ing-chou i-shan, cemetery for Kuangtung and T'ing-chou Prefecture of Fukien", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1790, "frankeNo": "H1.23", "lat": 5.441643, "lng": 100.297337, "addr": "Hong Seng Estate, 10470 Tanjung Tokong, Penang, Malaysia", "notes": "曾用名Kuangtung i-chuang。現存最早文物H1.23.1 (1795)。"}, {"id": "fm-wf-177", "zh": "福建義山", "alt": "Fukien Cemeteries", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1805, "frankeNo": "H1.24", "lat": 5.439108, "lng": 100.302074, "addr": "2003, Jalan Mount Erskine, Taman Teguh, 10470 George Town, Pulau Pinang, Malaysia", "notes": "疑似。"}, {"id": "fm-wf-178", "zh": "謝氏家塚", "alt": "Hsieh-shih chia-chung, cemetery of the Hsieh lineage", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1912, "frankeNo": "H1.25", "lat": 5.415273, "lng": 100.338265, "addr": "8, Lbh Armenian, George Town, 10200 George Town, Pulau Pinang, Malaysia", "notes": "現存最早文物H1.25.1 (1917)。"}, {"id": "fm-wf-179", "zh": "邱氏公塚", "alt": "Ch'iu-shih kung-chung, cemetery of the Ch'iu lineage", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1930, "frankeNo": "H1.26", "lat": 5.414611, "lng": 100.337404, "addr": "18, Cannon Square, George Town, 10450 George Town, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-181", "zh": "—", "alt": "Memorial site for those Chinese citizens of Penang who lost their lives in China in the war against the Japanese, and who were killed by the Japanese occupation forces in Penang or elsewhere in Malaysia", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1946, "frankeNo": "H1.28", "lat": 5.405911, "lng": 100.282754, "addr": "500, Jalan Bukit Bendera, 11500 Ayer Itam, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-187", "zh": "五福書院", "alt": "Wu-fu shu-yüan", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1851, "frankeNo": "H1.34", "lat": 5.419063, "lng": 100.334983, "addr": "407, Lbh Chulia, George Town, 10200 George Town, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-199", "zh": "龍山堂", "alt": "Lung-shan t'ang (Leong San Tong), ancestral temple of the Hsin-chiang 新江 (Hai-ch'eng county, Chang-chou prefecture) lineage of the Ch'iu 邱 (Khoo) clan of Southern Fukien", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1851, "frankeNo": "H1.46", "lat": 5.414598, "lng": 100.337252, "addr": "18, Cannon Square, George Town, 10450 George Town, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-200", "zh": "謝氏宗祠", "alt": "Hsieh-shih tsung-tz'u, ancestral temple of the Shih-t'ang 石塘 (Hai-ch'eng county, third tu) lineage of the Hsieh clan", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1858, "frankeNo": "H1.47", "lat": 5.425402, "lng": 100.317314, "addr": "22, Jalan Pangkor, Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-201", "zh": "林氏宗祠", "alt": "Lin-shih tsung-tz'u, ancestral temple of all people with the surname Lin", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1864, "frankeNo": "H1.48", "lat": 5.411621, "lng": 100.331149, "addr": "64, Lebuh Noordin, George Town, 10300 George Town, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-202", "zh": "辛柯蔡宗祠", "alt": "Hsin Ko Ts'ai tsung-tz'u, ancestral temple of the Hsin, Ko, and Ts'ai lineages", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1877, "frankeNo": "H1.49", "lat": 5.429435, "lng": 100.313184, "addr": "37, Lebuhraya Codrington, George Town, 10350 George Town, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-203", "zh": "陳氏宗祠", "alt": "Ch'en-shih tsung-tz'u, main ancestral temple of the Ch'en lineage", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1878, "frankeNo": "H1.50", "lat": 5.418146, "lng": 100.339381, "addr": "74-52, Lebuh China, George Town, 10200 George Town, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-204", "zh": "伍氏家廟", "alt": "Wu-shih chia-miao, ancestral temple of the Wu lineage", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1896, "frankeNo": "H1.51", "lat": 5.418278, "lng": 100.339887, "addr": "40, King Street, George Town, 10200 George Town, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-205", "zh": "梅氏宗祠, 家廟", "alt": "Mei-shih tsung-tz'u, Mei-shih chia-miao, ancestral temple of the Mei lineage from T'ai-shan county", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1842, "frankeNo": "H1.52", "lat": 5.4184, "lng": 100.339851, "addr": "31, Penang St, Georgetown, 10200 George Town, Penang, Malaysia", "notes": "現存最早文物H1.52.1 (1896)。"}, {"id": "fm-wf-206", "zh": "慎之學塾", "alt": "Shen-chih hsüeh-shu, ancestral hall of Cheng Ching-kuei 鄭景貴 and his family", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1886, "frankeNo": "H1.53", "lat": 5.418801, "lng": 100.334918, "addr": "407, Lbh Chulia, George Town, 10200 George Town, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-207", "zh": "楊氏宗祠", "alt": "Yang-shih tsung-tz'u, ancestral temple of the Hsia-yang 霞陽 lineage of the Yang (Yeoh) clan", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1844, "frankeNo": "H1.54", "lat": 5.415988, "lng": 100.340455, "addr": "3, Lbh Chulia, Ghaut, 10200 George Town, Pulau Pinang, Malaysia", "notes": "曾用名Ying-yüan kung應元宮。"}, {"id": "fm-wf-208", "zh": "王氏宗祠, 太原堂", "alt": "Wang-shih tsung-tz'u, ancestral temple of all people with the surname Wang, T'ai-yuan t'ang", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1895, "frankeNo": "H1.55", "lat": 5.415353, "lng": 100.328658, "addr": "No. 10400, 436, Jln Penang, 10000 George Town, Pulau Pinang, Malaysia", "notes": "現存最早文物H1.55.1 (1902)。"}, {"id": "fm-wf-209", "zh": "葉氏宗祠", "alt": "Yeh-shih tsung-tz'u, ancestral temple of the Yeh lineage from Nan-an county, Ch'üan-chou prefecture", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1924, "frankeNo": "H1.56", "lat": 5.415583, "lng": 100.336841, "addr": "71, Lbh Armenian, George Town, 10450 George Town, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-210", "zh": "許氏宗祠, 高陽堂", "alt": "Hsü-shih tsung-tu'z or Kao-yang t'ang, ancestral temple of all people with the surname Hsü", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1928, "frankeNo": "H1.57", "lat": 5.418329, "lng": 100.328617, "addr": "36, Jalan Burma, George Town, 10050 George Town, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-211", "zh": "六桂堂", "alt": "Liu-kuei t'ang, united ancestral temple of all families with the surname Huang 洪, Chiang 江, Weng 翁, Fang 方, Kung 龔, and Wang 汪", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1939, "frankeNo": "H1.58", "lat": 5.421025, "lng": 100.321272, "addr": "45, Jalan Westlands, George Town, 10400 George Town, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-212", "zh": "駱氏同宗社", "alt": "Lo-shih t'ung-tsung she, the ancestral temple of the Lo", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1956, "frankeNo": "H1.59", "lat": 5.42091, "lng": 100.318917, "addr": "34, Jalan Logan, George Town, 10400 George Town, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-215", "zh": "中華學校", "alt": "Chung-hua hsüeh-hsiao, Chung-hua School", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1904, "frankeNo": "H1.62", "lat": 5.390708, "lng": 100.300778, "addr": "2, Persiaran Tembaga, Taman Guan Joo Seng, 11600 Jelutong, Pulau Pinang, Malaysia", "notes": "現存最早文物H1.62.1 (1920)。"}, {"id": "fm-wf-216", "zh": "鍾靈中學", "alt": "Chung-ling chung-hsüeh, Chung-ling High School", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1947, "frankeNo": "H1.63", "lat": 5.404692, "lng": 100.294556, "addr": "Lrg Kg Baru, 11400 Ayer Itam, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-217", "zh": "菩提學院", "alt": "P'u-t'i hsüeh-yüan", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1950, "frankeNo": "H1.64", "lat": 5.343096, "lng": 100.296612, "addr": "731, Jalan Sungai Dua, 11700 Bayan Lepas, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-218", "zh": "伯公廟", "alt": "Po-kung miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1879, "frankeNo": "H2.1", "lat": 5.364083, "lng": 100.460686, "addr": "Jalan Pasar, 14000 Bukit Mertajam, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-219", "zh": "聖古廟", "alt": "Sheng-ku miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1893, "frankeNo": "H2.2", "lat": 5.385866, "lng": 100.474514, "addr": "2063, MK, 9, Lorong Gasing 2, Taman Berapit, 14000 Bukit Mertajam, Penang, Malaysia", "notes": ""}, {"id": "fm-wf-221", "zh": "靈應社", "alt": "Ling-ying she", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1874, "frankeNo": "H3.1", "lat": 5.44162, "lng": 100.387615, "addr": "2227, 14, Jalan Raja Uda, Telok Air Tawar, 12300 Butterworth, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-222", "zh": "廣德宮", "alt": "Kuang-te kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1887, "frankeNo": "H3.2", "lat": 5.410284, "lng": 100.404986, "addr": "25, Bandar Perai Permatang Pauh,13500 Pulau Pinang, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-223", "zh": "天福宮", "alt": "T‘ien-fu kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1888, "frankeNo": "H3.3", "lat": 5.444455, "lng": 100.380633, "addr": "Jalan Pantai Bersih, 13000 Butterworth, Pulau Pinang, Malaysia", "notes": "曾用名Fu-ho she福和社, Tze-lung-yeh kung子龍爺宮。"}, {"id": "fm-wf-224", "zh": "地藏庵", "alt": "Ti-tsang an", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1954, "frankeNo": "H3.4", "lat": 5.427605, "lng": 100.37852, "addr": "Kampung Bagan Jermal, 12300 Butterworth, Penang, Malaysia", "notes": ""}, {"id": "fm-wf-225", "zh": "育僑學校", "alt": "Yü-ch'iao hsüeh-hsiao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1921, "frankeNo": "H3.5", "lat": 5.350742, "lng": 100.458667, "addr": "1864, Jalan Bukit Kecil, 14000 Bukit Mertajam, Penang, Malaysia", "notes": "現存最早文物H3.5.1 (1935)。"}, {"id": "fm-wf-226", "zh": "福德祠, 高興宮, 廣福宮", "alt": "Fu-te tz'u, Kao-hsing kung, Kuang-fu kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1866, "frankeNo": "H4.1", "lat": 5.162598, "lng": 100.474505, "addr": "Jalan Teluk Ipil, 14300 Nibong Tebal, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-228", "zh": "水月宫, 觀音廟", "alt": "Shuei-yüeh kung, Kuan-yin miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1890, "frankeNo": "I1.1", "lat": 4.59852, "lng": 101.079435, "addr": "3, Jalan Sultan Idris Shah, Kampong Jawa, 30000 Ipoh, Perak, Malaysia", "notes": ""}, {"id": "fm-wf-229", "zh": "垻羅古廟, 大伯公廟", "alt": "Pa-lo ku-miao, Ta-po-kung miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1894, "frankeNo": "I1.2", "lat": 4.593318, "lng": 101.078745, "addr": "89-91, Jalan Bijeh Timah, 30000 Ipoh, Perak, Malaysia", "notes": ""}, {"id": "fm-wf-230", "zh": "福建義山", "alt": "Fu-chien i-shan, Fukien cemetery", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1898, "frankeNo": "I1.3", "lat": 4.504652, "lng": 101.141928, "addr": "Jalan Gopeng, 31610 Kampung Kepayang, Perak, Malaysia", "notes": "疑似。"}, {"id": "fm-wf-234", "zh": "興安会馆", "alt": "Hsing-an hui-kuan, Landsmannschaft of people from Hsing-hua prefecture made up of two counties P'u-t'ien and Hsien-yu", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1954, "frankeNo": "I1.7", "lat": 4.597016, "lng": 101.086276, "addr": "First Floor, 34, Jalan Leong Sin Nam, Kampung Jawa, 30300 Ipoh, Perak, Malaysia", "notes": ""}, {"id": "fm-wf-235", "zh": "聖古廟", "alt": "Sheng-ku miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1893, "frankeNo": "I2.1", "lat": 5.010022, "lng": 100.537129, "addr": "Jalan Besar, Kampung Alor Senggut, 34300 Bagan Serai, Perak, Malaysia", "notes": ""}, {"id": "fm-wf-236", "zh": "金寶古廟", "alt": "Chin-pao ku-miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1904, "frankeNo": "I3.1", "lat": 4.313108, "lng": 101.153238, "addr": "102, Jln Gopeng, Kampung Masjid, 31900 Kampar, Perak, Malaysia", "notes": "曾用名Shuei-yüeh kung水月宮。"}, {"id": "fm-wf-238", "zh": "昭惠廟", "alt": "Chao-hui miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1914, "frankeNo": "I4.1", "lat": 4.773289, "lng": 100.924703, "addr": "37A, Jalan Taiping, 33000 Kuala Kangsar, Perak, Malaysia", "notes": ""}, {"id": "fm-wf-239", "zh": "福建義山", "alt": "Fu-chien i-shan, Fukien cemetery", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1897, "frankeNo": "I4.2", "lat": 4.327579, "lng": 101.156762, "addr": "Jalan Kuala Dipang, 31900 Malim Nawar, Perak, Malaysia", "notes": "疑似。"}, {"id": "fm-wf-240", "zh": "綏靖伯廟", "alt": "Sui-ching po miao, temple of Sui-ching po", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1893, "frankeNo": "I5.1", "lat": 4.819567, "lng": 100.671983, "addr": "Jalan Titi Kertang, Kampung Pekan Matang, 34750 Matang, Perak, Malaysia", "notes": ""}, {"id": "fm-wf-241", "zh": "昭應祠, 蕃神廟", "alt": "Chao-ying tz'u, Fan-shen miao, 'Temple of the Foreign Deity'", "origin": "非同鄉組織", "color": "#94a3b8", "year": "未詳", "frankeNo": "I6.1", "lat": 4.228172, "lng": 100.574278, "addr": "Sungai Pinang Kecil, 32300 Pangkor Island, Perak, Malaysia", "notes": ""}, {"id": "fm-wf-244", "zh": "—", "alt": "Chinese cemetery", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1907, "frankeNo": "I8.1", "lat": 4.19968, "lng": 100.679654, "addr": "32000 Seri Manjung, Perak, Malaysia", "notes": "疑似。"}, {"id": "fm-wf-245", "zh": "廣福義塚", "alt": "Kuang Fu i-chung, cemetery for people from Kuangtung and Fukien", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1925, "frankeNo": "I9.1", "lat": 4.802747, "lng": 101.099727, "addr": "Jln Besar, Kampung Tersusun Keledang Utama, 31100 Sungai Siput, Perak, Malaysia", "notes": "疑似。"}, {"id": "fm-wf-246", "zh": "粵東古廟, 三王殿", "alt": "Yüeh-tung ku-miao, San-wang tien", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1882, "frankeNo": "I10.1", "lat": 4.890836, "lng": 100.731599, "addr": "Kampung Jana Baharu, 34600 Kamunting, Perak, Malaysia", "notes": ""}, {"id": "fm-wf-247", "zh": "嶺南古廟", "alt": "Ling-nan ku-miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1883, "frankeNo": "I10.2", "lat": 4.86235, "lng": 100.747139, "addr": "1879, Jalan Taming Sari, Taman Tasik Taiping, 34000 Taiping, Perak, Malaysia", "notes": "建立早於I10.1，但並無文物證明 (p1029)。"}, {"id": "fm-wf-248", "zh": "鳳山寺", "alt": "Feng-shan ssu", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1885, "frankeNo": "I10.3", "lat": 4.83663, "lng": 100.730577, "addr": "Kampung Bengali, 34000 Taiping, Perak, Malaysia", "notes": ""}, {"id": "fm-wf-249", "zh": "何仙姑廟", "alt": "Ho-hsien-ku miao, temple for Ho, the Immortal Girl", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1887, "frankeNo": "I10.4", "lat": 4.853149, "lng": 100.744022, "addr": "Jalan Tokong, 34000 Taiping, Perak, Malaysia", "notes": ""}, {"id": "fm-wf-250", "zh": "大善佛堂", "alt": "Ta-shan fo-t'ang", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1889, "frankeNo": "I10.5", "lat": 4.837551, "lng": 100.730775, "addr": "Kampung Bengali, 34000 Taiping, Perak, Malaysia", "notes": ""}, {"id": "fm-wf-251", "zh": "古武廟", "alt": "Ku-wu miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1895, "frankeNo": "I10.6", "lat": 4.843692, "lng": 100.748791, "addr": "Jalan Merdeka, Taman Tupai Mas, 34000 Taiping, Perak, Malaysia", "notes": ""}, {"id": "fm-wf-253", "zh": "福德祠, 大伯公廟", "alt": "Fu-te tz'u, Ta-po kung miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1899, "frankeNo": "I10.8", "lat": 4.877071, "lng": 100.743989, "addr": "Lot 386, Jalan Kamunting Lama, Taman Bukit Emas, 34000 Taiping, Perak, Malaysia", "notes": ""}, {"id": "fm-wf-254", "zh": "和善堂", "alt": "Ho-shan t'ang, Ho-shan fo t'ang", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1904, "frankeNo": "I10.9", "lat": 4.848449, "lng": 100.735914, "addr": "256A, Jalan Kota, Kampung Jambu, 34000 Taiping, Perak, Malaysia", "notes": ""}, {"id": "fm-wf-255", "zh": "檺林宫", "alt": "Kao-lin kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1906, "frankeNo": "I10.10", "lat": 4.842596, "lng": 100.730531, "addr": "Jln Datuk Seri Kamaruddin, Kampung Bengali, 34000 Taiping, Perak, Malaysia", "notes": "疑似。"}, {"id": "fm-wf-258", "zh": "廣東義山", "alt": "Kuang-tung i-shan", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1875, "frankeNo": "I10.13", "lat": 4.830461, "lng": 100.755036, "addr": "RQJ4+62, 34000 Taiping, Perak, Malaysia", "notes": "疑似。"}, {"id": "fm-wf-259", "zh": "福建義山", "alt": "Fu-chien i-shan, Fukien cemetery", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1894, "frankeNo": "I10.14", "lat": 4.840389, "lng": 100.753212, "addr": "Jalan Saw Ah Choy, Taman Tupai Mas, 34000 Taiping, Perak, Malaysia", "notes": "疑似。"}, {"id": "fm-wf-260", "zh": "—", "alt": "grave of those Chinese killed during the time of the Japanese coccupation", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1948, "frankeNo": "I10.15", "lat": 4.830759, "lng": 100.749338, "addr": "5, Lorong Tanjong, 34000 Taiping, Perak, Malaysia", "notes": "疑似。"}, {"id": "fm-wf-270", "zh": "何仙姑廟", "alt": "Ho hsien-ku miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1926, "frankeNo": "I11.1", "lat": 4.609832, "lng": 101.138413, "addr": "Lot 22567, Jalan Tambun, Tambun, 31400 Ipoh, Perak, Malaysia", "notes": ""}, {"id": "fm-wf-271", "zh": "福順宮", "alt": "Fu-shun kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1883, "frankeNo": "I12.1", "lat": 4.026497, "lng": 101.015819, "addr": "Jalan Pasar, Pekan Teluk Intan, 36000 Teluk Intan, Perak, Malaysia", "notes": "現存最早文物I12.1.1 (1888)。"}, {"id": "fm-wf-272", "zh": "廣東古廟", "alt": "Kuang-tung ku-miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1889, "frankeNo": "I12.2", "lat": 4.026556, "lng": 101.018635, "addr": "B43, Jalan Ah Cheong, Pekan Teluk Intan, 36000 Teluk Intan, Perak, Malaysia", "notes": ""}, {"id": "fm-wf-273", "zh": "保安宮", "alt": "Pao-an kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1895, "frankeNo": "J1.1", "lat": 6.43916, "lng": 100.19354, "addr": "Jalan Indera Kayangan, Pusat Bandar Kangar, 01000 Kangar, Perlis, Malaysia", "notes": ""}, {"id": "fm-wf-277", "zh": "羣益學校", "alt": "Ch'ün-i hsueh-hsiao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1923, "frankeNo": "J1.5", "lat": 6.429358, "lng": 100.196477, "addr": "6, Jalan Seri Satu, Taman Perlis, 01000 Kangar, Perlis, Malaysia", "notes": ""}, {"id": "fm-wf-278", "zh": "觀音亭", "alt": "Kuan-yin t'ing, temple of Kuan-yin", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1892, "frankeNo": "K1.1", "lat": 3.037723, "lng": 101.442767, "addr": "30, Jalan Raya Barat, Selangor Darul Ehsan, 41000 Klang, Selangor, Malaysia", "notes": ""}, {"id": "fm-wf-279", "zh": "清涼亭", "alt": "Ch'ing-liang t'ing", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1922, "frankeNo": "K1.2", "lat": 3.007619, "lng": 101.404641, "addr": "Kampung Kastam, 42000 Port Klang, Selangor, Malaysia", "notes": ""}, {"id": "fm-wf-280", "zh": "宗孔堂", "alt": "Tsung-K'ung t'ang", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1918, "frankeNo": "K1.3", "lat": 3.052188, "lng": 101.448092, "addr": "24, Jalan Kapar, 41400 Klang, Selangor Darul Ehsan, Jalan Kapar, 41400 Klang, Selangor, Malaysia", "notes": ""}, {"id": "fm-wf-281", "zh": "天福宮", "alt": "Tien-fu kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1955, "frankeNo": "K1.4", "lat": 3.050283, "lng": 101.427555, "addr": "Lot 3115 & 3116, Jalan Siakap, Jln Tepi Sungai, Taman Teluk Pulai, 41100 Klang, Selangor, Malaysia", "notes": ""}, {"id": "fm-wf-282", "zh": "廣東義山", "alt": "Kuang-tung i-shan, Kuangtung cemetery", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1884, "frankeNo": "K1.5", "lat": 3.136812, "lng": 101.453264, "addr": "Jalan Kenangan, Meru, 41050 Klang, Selangor, Malaysia", "notes": "疑似。"}, {"id": "fm-wf-290", "zh": "中華中學", "alt": "Chung-hua chung-hsüeh, Chung-Hwa Secondary School", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1911, "frankeNo": "K1.13", "lat": 3.036867, "lng": 101.452352, "addr": "No 129, Jalan Kota Raja, Kawasan 1, 41000 Klang, Selangor, Malaysia", "notes": "現存最早文物K1.13.1 (1938)。"}, {"id": "fm-wf-291", "zh": "師爺宮", "alt": "Shih-yeh kung, temple of Shih-yeh", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1898, "frankeNo": "K2.1", "lat": 2.991732, "lng": 101.786675, "addr": "24, Jalan Mendaling, Bandar Kajang, 43000 Kajang, Selangor, Malaysia", "notes": ""}, {"id": "fm-wf-292", "zh": "天福宮", "alt": "T'ien-fu kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1888, "frankeNo": "K3.1", "lat": 3.342537, "lng": 101.249008, "addr": "30, Jalan Sultan Ibrahim, Kuala Selangor, 45000 Kuala Selangor, Selangor, Malaysia", "notes": ""}, {"id": "fm-wf-293", "zh": "鳳山寺", "alt": "Feng-shan ssu", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1889, "frankeNo": "K3.2", "lat": 3.350606, "lng": 101.252245, "addr": "6, Temple, Jalan Besar, Pasir Penambang, 45000 Kuala Selangor, Selangor, Malaysia", "notes": ""}, {"id": "fm-wf-295", "zh": "師爺宮", "alt": "Shih-yeh kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1869, "frankeNo": "K4.1", "lat": 3.321284, "lng": 101.576198, "addr": "32, Lorong Tokong Cina, Pusat Bandar Rawang, 48000 Rawang, Selangor, Malaysia", "notes": ""}, {"id": "fm-wf-296", "zh": "感應亭", "alt": "Kan-ying t'ing", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1908, "frankeNo": "K4.2", "lat": 3.323243, "lng": 101.573919, "addr": "24, Jalan Rawang Garden, Kampung Rajah, 48000 Rawang, Selangor, Malaysia", "notes": ""}, {"id": "fm-wf-298", "zh": "—", "alt": "cemetery", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1914, "frankeNo": "K4.4", "lat": 3.316098, "lng": 101.587222, "addr": "Kawasan Industri Rawang Perdana, 48000 Rawang, Selangor, Malaysia", "notes": ""}, {"id": "fm-wf-299", "zh": "仙四師爺宮", "alt": "Hsien ssu shih-yeh kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1894, "frankeNo": "K5.1", "lat": 2.94854, "lng": 101.846899, "addr": "No 88 (Lot 43, Pekan Semenyih, 43500 Semenyih, Selangor, Malaysia", "notes": ""}, {"id": "fm-wf-300", "zh": "觀音堂, 石挪督公", "alt": "Kuan-yin t'ang, Shih Na-tu kung, the Lord Dato of stone", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1904, "frankeNo": "K5.2", "lat": 2.966591, "lng": 101.84736, "addr": "Ladang Sydney, Opposite, Taman Semenyih Idaman, 43500 Semenyih, Selangor, Malaysia", "notes": "疑似。"}, {"id": "fm-wf-302", "zh": "鳳山寺", "alt": "Feng-shan ssu", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1961, "frankeNo": "K6.1", "lat": 2.972452, "lng": 101.79005, "addr": "16, Jalan Reko, Taman Sahabat, 43000 Kajang, Selangor, Malaysia", "notes": "疑似。"}, {"id": "fm-wf-305", "zh": "岳山古廟, 師爺廟", "alt": "Yüeh-shan ku-miao, Shih-yeh miao                                   ", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1895, "frankeNo": "K8.1", "lat": 3.559108, "lng": 101.66125, "addr": "Jalan Kubu, Kampung Sungai Damar, 44000 Kuala Kubu Baru, Selangor, Malaysia", "notes": "現存最早文物K8.1.1 (1891)。"}, {"id": "fm-wf-306", "zh": "觀音閣", "alt": "Kuan-yin Temple, Kuan-yin ko", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1904, "frankeNo": "K8.2", "lat": 3.560219, "lng": 101.663494, "addr": "Kg Baru Asam Kumbang KKB,, 44000 Kuala Kubu Baru, Selangor, Malaysia", "notes": ""}, {"id": "fm-wf-308", "zh": "和安宮", "alt": "Ho-an kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1801, "frankeNo": "L1.1", "lat": 5.332735, "lng": 103.132788, "addr": "153a, Jalan Kampung Cina, Kampung Banggul, 20100 Kuala Terengganu, Terengganu, Malaysia", "notes": ""}, {"id": "fm-wf-309", "zh": "鳳山寺", "alt": "Feng-shan ssu", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1926, "frankeNo": "L1.2", "lat": 5.234426, "lng": 103.040376, "addr": "T101, Kampung Tiruk, 21070 Kuala Terengganu, Terengganu, Malaysia", "notes": ""}, {"id": "fm-wf-310", "zh": "三保公廟", "alt": "San-pao-kung miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1947, "frankeNo": "L1.3", "lat": 5.28538, "lng": 100.290502, "addr": "Jalan Batu Maung, Bayan Lepas, Pulau Pinang, Malaysia", "notes": ""}, {"id": "fm-wf-311", "zh": "—", "alt": "Fukien cemetery and various burial places of families", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1813, "frankeNo": "L1.4", "lat": 5.323944, "lng": 103.145003, "addr": "20400 Kuala Terengganu, Terengganu, Malaysia", "notes": "疑似。"}, {"id": "fm-wf-312", "zh": "—", "alt": "memorial stele for those who lost their lives during the time of the Japanese occupation", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1946, "frankeNo": "L1.5", "lat": 5.325718, "lng": 103.143454, "addr": "Jalan Pusara, Taman Pusara, 20400 Kuala Terengganu, Terengganu, Malaysia", "notes": ""}, {"id": "fm-wf-316", "zh": "天后宮", "alt": "T'ien-hou kung, temple of T'ien-hou, Ch'iung-chou hui-kuan, Hainan Landsmannschaft", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1906, "frankeNo": "L2.1", "lat": 5.330231, "lng": 103.132357, "addr": "Jalan Balik Bukit, 20300 Kuala Terengganu, Terengganu, Malaysia", "notes": ""}, {"id": "fm-wf-317", "zh": "樂群學校", "alt": "Lo-ch'ün hsüeh-hsiao, Lo-ch'ün School", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1941, "frankeNo": "L2.2", "lat": 4.408225, "lng": 103.396325, "addr": "SRJK(C) Lok Khoon Ayer Jernih, Kemasek, Malaysia", "notes": ""}, {"id": "fm-wf-318", "zh": "伯公廟", "alt": "Po-kung miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1939, "frankeNo": "M1.1", "lat": 5.895998, "lng": 116.049438, "addr": "Jalan Putatan LH Ind, CTR Putatan, 88200 Kota Kinabalu, Sabah, Malaysia", "notes": ""}, {"id": "fm-wf-319", "zh": "中華義山", "alt": "Chung-hua i-shan, Chinese cemetery", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1914, "frankeNo": "M1.2", "lat": 5.972778, "lng": 116.089493, "addr": "Jalan Keramat, 88400 Kota Kinabalu, Sabah, Malaysia", "notes": "疑似。"}, {"id": "fm-wf-320", "zh": "—", "alt": "war memorial for those who lost their lives as guerrilla fighters against the Japanese in Sabah during the Second World War", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1945, "frankeNo": "M1.3", "lat": 5.921022, "lng": 116.053975, "addr": "No.1, Jalan Bandaran, 88675, Kota Kinabalu, Sabah, 88675, Kota Kinabalu, Sabah, 88000, Malaysia", "notes": ""}, {"id": "fm-wf-321", "zh": "—", "alt": "war memorial", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1957, "frankeNo": "M2.1", "lat": 5.350627, "lng": 116.167818, "addr": "Kampung Tuarid Taud, 89000 Keningau, Sabah, Malaysia", "notes": ""}, {"id": "fm-wf-322", "zh": "福德祠", "alt": "Fu-te tz'u", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1957, "frankeNo": "M3.1", "lat": 6.881893, "lng": 116.847131, "addr": "89050 Kudat, Sabah, Malaysia", "notes": "疑似。"}, {"id": "fm-wf-324", "zh": "—", "alt": "A memorial stone", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1963, "frankeNo": "M3.3", "lat": 6.880847, "lng": 116.847477, "addr": "Jln Ibrahim Arshad, 89050 Kudat, Sabah, Malaysia", "notes": ""}, {"id": "fm-wf-325", "zh": "廣福宮", "alt": "Kuang-fu kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1852, "frankeNo": "M4.1", "lat": 5.280198, "lng": 115.241272, "addr": "Bandar Labuan, 87000 Labuan, Labuan Federal Territory, Malaysia", "notes": ""}, {"id": "fm-wf-326", "zh": "威鎮廟, 廣澤遵王廟", "alt": "Wei-chen miao, Kuang-tse tsun-wang miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1893, "frankeNo": "M4.2", "lat": 5.277277, "lng": 115.227767, "addr": "Lorong Sungai Keling 61, 87000 Labuan, Labuan Federal Territory, Malaysia", "notes": "M4.2.2上稱“廣澤尊王”，此處之“遵”不知是否為輸入之誤。"}, {"id": "fm-wf-330", "zh": "關帝古廟", "alt": "Kuan-ti ku-miao, old Kuan-ti Temple", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1904, "frankeNo": "M5.1", "lat": 5.024481, "lng": 118.329323, "addr": "Jalan Dahlia, Bandar Lahad Datu, 91100 Lahad Datu, Sabah, Malaysia", "notes": ""}, {"id": "fm-wf-333", "zh": "津僑坆地", "alt": "Chin-ch'iao fen-ti", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1920, "frankeNo": "M7.1", "lat": 5.918026, "lng": 116.14862, "addr": "W49X+6J Donggongon, Malaysia", "notes": "疑似。"}, {"id": "fm-wf-334", "zh": "三聖宮", "alt": "San-sheng kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1887, "frankeNo": "M8.1", "lat": 5.840795, "lng": 118.114238, "addr": "Jln Singapura, Pusat Bandar Sandakan, 90000 Sandakan, Sabah, Malaysia", "notes": ""}, {"id": "fm-wf-335", "zh": "列聖宮", "alt": "Lieh-sheng kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1891, "frankeNo": "M8.2", "lat": 5.842135, "lng": 118.111825, "addr": "Pusat Bandar Sandakan, 90000 Sandakan, Sabah, Malaysia", "notes": ""}, {"id": "fm-wf-336", "zh": "譚公祖廟", "alt": "T'an kung tsu-miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1894, "frankeNo": "M8.3", "lat": 5.858163, "lng": 118.111949, "addr": "Jalan Chi Hwa, 90000 Sandakan, Sabah, Malaysia", "notes": ""}, {"id": "fm-wf-337", "zh": "福德公司", "alt": "Fu-te-kung t'ze", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1909, "frankeNo": "M8.4", "lat": 5.829499, "lng": 118.087105, "addr": "KAMPUNG PUKAT, JAMBATAN EMPAT, PINTU 2, Jalan Leila, 90000 Sandakan, Sabah, Malaysia", "notes": "疑似，名中“司”疑为“祠”之误。"}, {"id": "fm-wf-338", "zh": "盤古先王廟", "alt": "P'an-ku hsien-wang miao, temple of P'an-ku", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1922, "frankeNo": "M8.5", "lat": 5.829601, "lng": 118.083187, "addr": "R3HM+R7, Pusat Bandar Sandakan, 90000 Sandakan, Sabah, Malaysia", "notes": ""}, {"id": "fm-wf-339", "zh": "—", "alt": "Cemetries", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1891, "frankeNo": "M8.6", "lat": 5.837187, "lng": 118.055048, "addr": "Jalan Cecily, 90000 Sandakan, Sabah, Malaysia", "notes": "疑似。"}, {"id": "fm-wf-340", "zh": "—", "alt": "memorial for those who lost their lives during the Japanese occupation from 19 January 1942 to 17 October 1945", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1946, "frankeNo": "M8.7", "lat": 5.842758, "lng": 118.121183, "addr": "Jalan Chinese Cemetery, 90000 Sandakan, Sabah, Malaysia", "notes": ""}, {"id": "fm-wf-343", "zh": "列聖廟", "alt": "Lieh-sheng miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1949, "frankeNo": "M9.1", "lat": 4.243809, "lng": 117.886222, "addr": "Jalan Dunlop, Bandar Tawau, 91000 Tawau, Sabah, Malaysia", "notes": ""}, {"id": "fm-wf-345", "zh": "—", "alt": "cemetry", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1912, "frankeNo": "M9.3", "lat": 4.263556, "lng": 117.874948, "addr": "7V7F+CX Taman Guan Soon, Malaysia", "notes": "疑似。"}, {"id": "fm-wf-346", "zh": "觀音廟", "alt": "Kuan-yin miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1951, "frankeNo": "M10.1", "lat": 5.102989, "lng": 115.941433, "addr": "Jalan Tenom Kemabong, 89900 Tenom, Sabah, Malaysia", "notes": ""}, {"id": "fm-wf-348", "zh": "—", "alt": "cemetery", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1913, "frankeNo": "M10.3", "lat": 5.140112, "lng": 115.953586, "addr": "4XQ3+PC Kampung Mansalima, Malaysia", "notes": "疑似。"}, {"id": "fm-wf-349", "zh": "中華義塚", "alt": "Chung-hua i-chung, cemetery", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1918, "frankeNo": "M11.1", "lat": 5.46257, "lng": 115.789501, "addr": "Jalan Papar - Beaufort, Pekan Bongawan, 89709 Bongawan, Sabah, Malaysia", "notes": "疑似。"}, {"id": "fm-wf-350", "zh": "三聖廟", "alt": "San-sheng miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1962, "frankeNo": "M12.1", "lat": 4.476455, "lng": 118.616033, "addr": "Jalan Causeway, Taman Bandar Semporna, 91308 Semporna, Sabah, Malaysia", "notes": ""}, {"id": "fm-wf-353", "zh": "廣福山", "alt": "cemetery", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1944, "frankeNo": "M12.4", "lat": 4.472081, "lng": 118.602437, "addr": "SA51, Pekan Semporna, 91308 Semporna, Sabah, Malaysia", "notes": ""}, {"id": "fm-wf-354", "zh": "壽山亭, 大伯公廟", "alt": "Shou-shan t'ing, Ta-po-kung miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1856, "frankeNo": "N1.1", "lat": 1.557192, "lng": 110.348982, "addr": "Jalan Tunku Abdul Rahman, 93100 Kuching, Sarawak, Malaysia", "notes": "建於19世紀中葉 (p1280)。"}, {"id": "fm-wf-355", "zh": "鳳山寺, 聖王宮", "alt": "Feng-shan ssu, Sheng-wang kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1873, "frankeNo": "N1.2", "lat": 1.557477, "lng": 110.347822, "addr": "H84X+X4, Kuching, Malaysia", "notes": ""}, {"id": "fm-wf-356", "zh": "上帝廟", "alt": "Shang-ti miao, temple of Shang-ti", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1863, "frankeNo": "N1.3", "lat": 1.558406, "lng": 110.345627, "addr": "22, Carpenter St, 93000 Kuching, Sarawak, Malaysia", "notes": ""}, {"id": "fm-wf-358", "zh": "林華山觀音堂", "alt": "Lin-hua shan Kuan-yin t'ang, Kuan-yin Temple of Lin-hua shan", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1902, "frankeNo": "N1.5", "lat": 1.54572, "lng": 110.353038, "addr": "68 B, Jalan Tabuan, Gan Swee Cho Garden, 93100 Kuching, Sarawak, Malaysia", "notes": ""}, {"id": "fm-wf-360", "zh": "福建義山", "alt": "Fu-chien i-shan, Fukien cemetery", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1876, "frankeNo": "N1.7", "lat": 1.46354, "lng": 110.318155, "addr": "F879+C7, Kuching, Malaysia", "notes": ""}, {"id": "fm-wf-361", "zh": "潮州義山", "alt": "Ch'ao-chou I-shan, Ch'ao-chou cemetery", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1884, "frankeNo": "N1.8", "lat": 1.456708, "lng": 110.306948, "addr": "F853+HX, Kuching, Malaysia", "notes": ""}, {"id": "fm-wf-362", "zh": "客屬義山", "alt": "K'o-shu i-shan, Hakka cemetery", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1937, "frankeNo": "N1.9", "lat": 1.370684, "lng": 110.321935, "addr": "98CC+7Q, Kuching, Malaysia", "notes": ""}, {"id": "fm-wf-365", "zh": "黃老仙師宮", "alt": "Huang-Lao hsien-shih kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1894, "frankeNo": "N2.1", "lat": 1.415766, "lng": 110.152276, "addr": "C582+8W, Bau, Malaysia", "notes": ""}, {"id": "fm-wf-366", "zh": "慈雲（濟）閣", "alt": "Tz'u-yün (chi) ko", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1890, "frankeNo": "N2.2", "lat": 1.410312, "lng": 110.148994, "addr": "C46X+4H, Bau, Malaysia", "notes": "現存最早文物N2.2.1 (1902)。"}, {"id": "fm-wf-367", "zh": "國王古廟", "alt": "Kuo-wang ku-miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1896, "frankeNo": "N2.3", "lat": 1.415611, "lng": 110.149441, "addr": "C48X+6Q, Bau, Malaysia", "notes": ""}, {"id": "fm-wf-368", "zh": "—", "alt": "Chinese cemetery", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1883, "frankeNo": "N2.4", "lat": 1.418437, "lng": 110.150306, "addr": "C592+65, Bau, Malaysia", "notes": ""}, {"id": "fm-wf-369", "zh": "福德祠", "alt": "Fu-te tz'u", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1912, "frankeNo": "N3.1", "lat": 3.170549, "lng": 113.041972, "addr": "52CR+6Q Shahida Commercial Centre, Malaysia", "notes": "疑似。"}, {"id": "fm-wf-370", "zh": "—", "alt": "Chinese cemetery", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1867, "frankeNo": "N3.2", "lat": 3.188167, "lng": 113.057033, "addr": "53Q4+7R Kampung Baru Bintulu, Malaysia", "notes": "疑似。"}, {"id": "fm-wf-372", "zh": "福隆亭", "alt": "Fu-lung t'ing", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1899, "frankeNo": "N5.1", "lat": 2.016988, "lng": 112.938549, "addr": "6PJJ2W8Q+QC, Kapit, Sarawak, Malaysia", "notes": "疑似。"}, {"id": "fm-wf-375", "zh": "福德祠", "alt": "Fu-te tz'u", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1897, "frankeNo": "N7.1", "lat": 4.75484, "lng": 115.008428, "addr": "Pekan Limbang, 98700 Limbang, Sarawak, Malaysia", "notes": ""}, {"id": "fm-wf-377", "zh": "壽山亭", "alt": "Shou-shan t'ing", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1891, "frankeNo": "N8.1", "lat": 4.17766, "lng": 114.321198, "addr": "58HC+3F Baram, Marudi, Malaysia", "notes": ""}, {"id": "fm-wf-378", "zh": "—", "alt": "cemetery", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1895, "frankeNo": "N8.2", "lat": 4.180674, "lng": 114.324691, "addr": "58JF+7V Baram, Marudi, Malaysia", "notes": "疑似。"}, {"id": "fm-wf-380", "zh": "—", "alt": "cemetery", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1915, "frankeNo": "N9.1", "lat": 4.358431, "lng": 113.989162, "addr": "9X5Q+9M Taman Wah Shin, Miri, Malaysia", "notes": "疑似。"}, {"id": "fm-wf-381", "zh": "—", "alt": "memorial for those who lost their lives during the Japanese occupation", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1946, "frankeNo": "N9.2", "lat": 4.385211, "lng": 113.985134, "addr": "9XPP+33 Miri Handicraft Centre, Miri, Malaysia", "notes": ""}, {"id": "fm-wf-385", "zh": "青山嚴", "alt": "Ch'ing-shan yen", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1902, "frankeNo": "N10.1", "lat": 1.646235, "lng": 110.484961, "addr": "17, Jalan Kampung Muara Tebas, Sungai Buda Kecil, 93010 Kuching, Sarawak, Malaysia", "notes": "現存最早文物N10.1.1 (1902/03)。"}, {"id": "fm-wf-386", "zh": "永安亭, 大伯公廟", "alt": "Yung-an t'ing, Ta-po kung miao", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1897, "frankeNo": "N11.1", "lat": 2.287065, "lng": 111.826294, "addr": "Jln Temple, 96000 Sibu, Sarawak, Malaysia", "notes": ""}, {"id": "fm-wf-388", "zh": "漳泉義山", "alt": "cemetery of the Chang-chou and Ch'üan-chou Landsmannschaft, Chang Ch'üan kung-hui漳泉公會", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1910, "frankeNo": "N11.3", "lat": 2.356916, "lng": 111.832343, "addr": "9R4M+F4 Pekan Sibu, Sibu, Malaysia", "notes": ""}, {"id": "fm-wf-390", "zh": "水月宮", "alt": "Shuei-yüeh kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1850, "frankeNo": "N13.1", "lat": 1.445785, "lng": 110.218115, "addr": "Jalan Siniawan, Siniawan, 94000 Bau, Sarawak, Malaysia", "notes": "現存最早文物N13.1.1 (1886)。疑似。"}, {"id": "fm-wf-394", "zh": "天師廟, 廣龍宮", "alt": "T‘ien-shih miao, Kuang-lung kung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1894, "frankeNo": "N15.1", "lat": 1.509979, "lng": 110.270252, "addr": "3, Jalan Batu Kawa Bazaar, Batu Kawa, 93250 Kuching, Sarawak, Malaysia", "notes": ""}, {"id": "fm-wf-395", "zh": "—", "alt": "cemetery", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1894, "frankeNo": "N15.2", "lat": 1.511284, "lng": 110.267996, "addr": "26, Jalan Batu Kawa Bazaar, Batu Kawa, 93250 Kuching, Sarawak, Malaysia", "notes": "疑似。"}, {"id": "fm-wf-396", "zh": "南山洞", "alt": "Nan-shan tung", "origin": "非同鄉組織", "color": "#94a3b8", "year": 1974, "frankeNo": "N16.1", "lat": 1.423823, "lng": 110.192852, "addr": "（無現代定位地址）", "notes": "現存最早文物N16.1.1 (1937)。"}];
+        const originColors = {"福建／閩南": "#2563eb", "廣東／廣府四邑": "#dc2626", "客家／客屬": "#16a34a", "海南／瓊州": "#ea580c", "潮州／韓江": "#9333ea", "廣西": "#0d9488", "其他／跨幫聯合": "#64748b"};
+
+        // Initialize Map centered on Peninsular & East Malaysia
+        const map = L.map('map', {
+            zoomControl: false,
+            attributionControl: false
+        }).setView([3.8, 102.5], 7);
+
+        // Add Zoom Control to bottom-left for mobile ergonomics
+        L.control.zoom({ position: 'bottomleft' }).addTo(map);
+
+        // Base Map Tile Layer (CartoDB Positron / OSM with fallback)
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+            subdomains: 'abcd',
+            maxZoom: 19
+        }).addTo(map);
+
+        // Custom Attribution Control
+        L.control.attribution({ position: 'bottomright' })
+            .addAttribution('資料來源: <a href="https://nanyang-data.info/" target="_blank">Nanyang Data</a> (CC BY-SA 4.0)')
+            .addTo(map);
+
+        // Marker Layers
+        const hometownMarkersLayer = L.layerGroup().addTo(map);
+        const otherSitesLayer = L.layerGroup();
+        const markerMap = {}; // Map id -> L.circleMarker
+
+        let currentOriginFilter = '全部';
+
+        // Create Custom Popup HTML
+        function createPopupHtml(site) {
+            const badgeColor = site.color || '#64748b';
+            const navUrl = site.lat ? `https://www.google.com/maps/search/?api=1&query=${site.lat},${site.lng}` : '#';
+            return `
+                <div class="custom-popup">
+                    <span class="popup-badge" style="background:${badgeColor}">${site.origin}</span>
+                    <div class="popup-title">${site.zh}</div>
+                    <div class="popup-alt">${site.alt}</div>
+                    <div class="popup-row"><strong>編號：</strong><span>${site.id} (${site.frankeNo})</span></div>
+                    <div class="popup-row"><strong>最早銘刻：</strong><span>${site.year} 年</span></div>
+                    <div class="popup-row"><strong>現代地址：</strong><span>${site.addr}</span></div>
+                    ${site.notes ? `<div class="popup-row" style="color:#b45309"><strong>備註：</strong><span>${site.notes}</span></div>` : ''}
+                    ${site.lat ? `<a href="${navUrl}" target="_blank" rel="noopener noreferrer" class="popup-nav-btn">📍 Google 地圖導航 &rarr;</a>` : ''}
+                </div>
+            `;
+        }
+
+        // Render Hometown Markers
+        function renderHometownMarkers() {
+            hometownMarkersLayer.clearLayers();
+            const bounds = [];
+
+            hometownData.forEach(site => {
+                if (site.lat === null || site.lng === null) return;
+
+                const isVisible = (currentOriginFilter === '全部' || site.origin === currentOriginFilter);
+                if (!isVisible) return;
+
+                const marker = L.circleMarker([site.lat, site.lng], {
+                    radius: 8,
+                    fillColor: site.color,
+                    color: '#ffffff',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.9
+                });
+
+                marker.bindPopup(createPopupHtml(site));
+                marker.siteData = site;
+                hometownMarkersLayer.addLayer(marker);
+                markerMap[site.id] = marker;
+                bounds.push([site.lat, site.lng]);
+            });
+
+            if (bounds.length > 0 && currentOriginFilter === '全部') {
+                map.fitBounds(bounds, { padding: [60, 60], maxZoom: 9 });
+            }
+        }
+
+        // Render Background Sites (Temples / Cemeteries)
+        otherSitesData.forEach(site => {
+            if (site.lat === null || site.lng === null) return;
+            const marker = L.circleMarker([site.lat, site.lng], {
+                radius: 4,
+                fillColor: '#94a3b8',
+                color: '#ffffff',
+                weight: 1,
+                opacity: 0.7,
+                fillOpacity: 0.5
+            });
+            marker.bindPopup(`
+                <div class="custom-popup">
+                    <span class="popup-badge" style="background:#64748b">其他歷史據點</span>
+                    <div class="popup-title">${site.zh}</div>
+                    <div class="popup-alt">${site.alt}</div>
+                    <div class="popup-row"><strong>編號：</strong><span>${site.id}</span></div>
+                    <div class="popup-row"><strong>最早銘刻：</strong><span>${site.year} 年</span></div>
+                    <div class="popup-row"><strong>地址：</strong><span>${site.addr}</span></div>
+                </div>
+            `);
+            otherSitesLayer.addLayer(marker);
+        });
+
+        function toggleBackgroundSites(checked) {
+            if (checked) {
+                map.addLayer(otherSitesLayer);
+            } else {
+                map.removeLayer(otherSitesLayer);
+            }
+        }
+
+        // Origin Filter Action
+        function filterByOrigin(origin, btn) {
+            currentOriginFilter = origin;
+            document.querySelectorAll('.origin-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            renderHometownMarkers();
+
+            // Update active count label
+            const count = origin === '全部' ? 71 : (hometownData.filter(s => s.lat !== null && s.origin === origin).length);
+            document.getElementById('activeCount').innerText = `顯示中：${count} 處`;
+        }
+
+        function resetMapView() {
+            const validCoords = hometownData.filter(s => s.lat !== null).map(s => [s.lat, s.lng]);
+            if (validCoords.length > 0) {
+                map.fitBounds(validCoords, { padding: [60, 60] });
+            }
+        }
+
+        // Side Drawer logic
+        function toggleDrawer() {
+            const drawer = document.getElementById('sitesDrawer');
+            drawer.classList.toggle('open');
+        }
+
+        function renderDrawerList(list) {
+            const container = document.getElementById('drawerCardsContainer');
+            container.innerHTML = '';
+
+            list.forEach(site => {
+                const card = document.createElement('div');
+                card.className = 'site-card';
+                const hasCoord = site.lat !== null;
+                card.innerHTML = `
+                    <div class="site-card-title">
+                        <span>${site.zh}</span>
+                        <span style="font-size:11px; color:${site.color}; font-weight:700;">${site.origin}</span>
+                    </div>
+                    <div class="site-card-sub">${site.alt}</div>
+                    <div class="site-card-meta">
+                        <span>銘刻: ${site.year}年</span>
+                        <span>•</span>
+                        <span>${hasCoord ? '📍 已定位' : '○ 無坐標'}</span>
+                        <span>•</span>
+                        <span>${site.frankeNo}</span>
+                    </div>
+                    ${site.notes ? `<div style="font-size:11px; color:#b45309; margin-top:3px;">${site.notes}</div>` : ''}
+                `;
+
+                if (hasCoord) {
+                    card.onclick = () => {
+                        if (window.innerWidth <= 600) toggleDrawer();
+                        map.flyTo([site.lat, site.lng], 15, { duration: 1.2 });
+                        if (markerMap[site.id]) {
+                            setTimeout(() => markerMap[site.id].openPopup(), 1300);
+                        }
+                    };
+                }
+                container.appendChild(card);
+            });
+        }
+
+        function filterDrawerList() {
+            const q = document.getElementById('drawerSearchInput').value.trim().toLowerCase();
+            const filtered = hometownData.filter(s => {
+                return (
+                    s.zh.toLowerCase().includes(q) ||
+                    s.alt.toLowerCase().includes(q) ||
+                    s.origin.toLowerCase().includes(q) ||
+                    s.id.toLowerCase().includes(q) ||
+                    s.addr.toLowerCase().includes(q) ||
+                    s.notes.toLowerCase().includes(q)
+                );
+            });
+            renderDrawerList(filtered);
+        }
+
+        // Initial setup
+        renderHometownMarkers();
+        renderDrawerList(hometownData);
+    </script>
+</body>
+</html>
